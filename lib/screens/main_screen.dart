@@ -28,6 +28,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print("MainScreen: Building..."); // Add log
     return Scaffold(
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),

@@ -5,6 +5,7 @@ class CalendarScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print("CalendarScreen: Building..."); // Add log
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendar'),

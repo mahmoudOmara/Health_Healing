@@ -5,6 +5,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print("ProfileScreen: Building..."); // Add log
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),

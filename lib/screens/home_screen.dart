@@ -5,6 +5,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print("HomeScreen: Building..."); // Add log
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
