@@ -24,6 +24,7 @@ class AuthWrapper extends StatelessWidget {
 
         // If user is logged in, show MainScreen
         if (snapshot.hasData && snapshot.data != null) {
+          print("AuthWrapper: User is logged in (UID: ${snapshot.data!.uid}). Returning MainScreen.");
           // TODO: Check if user profile exists in Firestore, if not, navigate to ProfileSetupScreen
           return const MainScreen();
         }
