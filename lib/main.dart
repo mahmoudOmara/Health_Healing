@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Health Healing',
       theme: AppTheme.lightTheme, // Apply the custom theme
-      home: const Placeholder(), // Replace with initial screen later (e.g., AuthWrapper)
+      home: Scaffold(body: Center(child: Text("Hello Test"))), // Simplified for debugging
       debugShowCheckedModeBanner: false,
     );
   }
