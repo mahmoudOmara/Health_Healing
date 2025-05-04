@@ -53,6 +53,10 @@ class _OtpScreenState extends State<OtpScreen> {
           // Create user document in Firestore if it doesn't exist
           await _userService.createUserDocumentIfNotExists(userCredential.user!);
           // AuthWrapper will handle navigation to MainScreen
+          // Pop the OTP screen to return to AuthWrapper
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
         } else {
           // Handle case where sign-in returns null (should not happen if no exception)
           throw Exception('Sign in returned null user credential.');
