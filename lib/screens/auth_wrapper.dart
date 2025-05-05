@@ -8,39 +8,38 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print("AuthWrapper: Building...");
+    // Listen to authentication state changes
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
-        // More detailed initial logging
-        print("AuthWrapper StreamBuilder: START");
-        print("  ConnectionState: ${snapshot.connectionState}");
-        print("  HasData: ${snapshot.hasData}");
-        print("  Data: ${snapshot.data}"); // Log the actual user object or null
-        print("  HasError: ${snapshot.hasError}");
-        if (snapshot.hasError) {
-          print("  Error: ${snapshot.error}");
-        }
-
+        // Show loading indicator while checking auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
-          print("AuthWrapper StreamBuilder: State is waiting...");
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
           );
         }
 
-        // This check needs to be robust
-        if (snapshot.hasData && snapshot.data != null) {
-          // Check if user object is valid (e.g., UID is not empty)
-          // Although Firebase Auth usually handles this, adding extra checks for debugging
-          final user = snapshot.data!;
-          print("AuthWrapper StreamBuilder: User data received (UID: ${user.uid}). Returning MainScreen.");
-          return const MainScreen();
-        } else {
-          // This case should cover !snapshot.hasData or snapshot.data == null
-          print("AuthWrapper StreamBuilder: No valid user data found. Returning LoginScreen.");
-          return const LoginScreen();
+        // Handle potential errors (optional: show an error screen)
+        if (snapshot.hasError) {
+          // Consider logging the error
+          // print("AuthWrapper Error: ${snapshot.error}");
+          return const Scaffold(
+            body: Center(
+              child: Text("Error loading authentication state."),
+            ),
+          );
         }
+
+        // If user is logged in, show MainScreen
+        if (snapshot.hasData && snapshot.data != null) {
+          // TODO: Check if user profile exists in Firestore, if not, navigate to ProfileSetupScreen
+          return const MainScreen();
+        }
+
+        // If user is not logged in, show LoginScreen
+        return const LoginScreen();
       },
     );
   }
