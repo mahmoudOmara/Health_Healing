@@ -8,9 +8,6 @@ import 'package:health_healing/screens/auth_wrapper.dart'; // Import AuthWrapper
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // DEBUG: Disable persistence to test fresh install behavior
-  await FirebaseAuth.instance.setPersistence(Persistence.NONE);
-  print("DEBUG: Firebase Auth persistence set to NONE.");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
