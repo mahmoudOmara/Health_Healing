@@ -11,10 +11,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // DEBUG: Force sign out on start to clear potential cached session
-  print("DEBUG: Forcing sign out at app start...");
-  await FirebaseAuth.instance.signOut();
-  print("DEBUG: Sign out complete.");
   runApp(const MyApp());
 }
 
