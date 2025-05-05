@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  String _selectedCountryCode = '+1'; // Default country code
+  String _selectedCountryCode = "+20"; // Default country code set to Egypt
   final AuthService _authService = AuthService(); // Instantiate AuthService
 
   // TODO: Replace with a better country code picker if needed
