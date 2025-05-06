@@ -1,11 +1,12 @@
-import 'dart:io';
+import 
+import 
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:health_healing/models/health_issue.dart';
-import 'package:health_healing/models/health_issue_update.dart';
+import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_storage/firebase_storage.dart";
+import "package:health_healing/models/health_issue.dart";
+import "package:health_healing/models/health_issue_update.dart";
 // Assuming firebase_auth is used for userId
-import 'package:firebase_auth/firebase_auth.dart';
+import "package:firebase_auth/firebase_auth.dart";
 
 class HealthIssueService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -15,7 +16,7 @@ class HealthIssueService {
   late final CollectionReference _healthIssuesCollection;
 
   HealthIssueService() {
-    _healthIssuesCollection = _firestore.collection('health_issues');
+    _healthIssuesCollection = _firestore.collection("health_issues");
   }
 
   // Get current user ID
@@ -29,7 +30,7 @@ class HealthIssueService {
     try {
       // Create a mutable copy of the map to set/override userId
       Map<String, dynamic> issueData = issue.toFirestore();
-      issueData['userId'] = _currentUserId; // Ensure current user's ID is set
+      issueData["userId"] = _currentUserId; // Ensure current user"s ID is set
 
       DocumentReference docRef = await _healthIssuesCollection.add(issueData);
       return docRef.id;
@@ -45,8 +46,8 @@ class HealthIssueService {
       return Stream.value([]); // Return empty stream if user not logged in
     }
     return _healthIssuesCollection
-        .where('userId', isEqualTo: _currentUserId)
-        .orderBy('createdAt', descending: true)
+        .where("userId", isEqualTo: _currentUserId)
+        .orderBy("createdAt", descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
@@ -54,26 +55,40 @@ class HealthIssueService {
           .toList();
     });
   }
+  
+  // Get a single health issue stream (for refreshing detail screen)
+  Stream<HealthIssue> getHealthIssueStream(String issueId) {
+     if (_currentUserId == null) {
+      throw Exception("User not logged in");
+    }
+    return _healthIssuesCollection
+        .doc(issueId)
+        .snapshots()
+        .map((doc) {
+          if (!doc.exists || (doc.data() as Map<String, dynamic>)["userId"] != _currentUserId) {
+            throw Exception("Issue not found or not authorized");
+          }
+          return HealthIssue.fromFirestore(doc);
+        });
+  }
 
   // Update an existing health issue
   Future<void> updateHealthIssue(HealthIssue issue) async {
     if (issue.id == null) {
       throw Exception("Issue ID cannot be null for update");
     }
-    if (_currentUserId == null ) { // Removed issue.userId check as it might not be populated from client if not careful
+    if (_currentUserId == null ) { 
         throw Exception("User not logged in");
     }
     try {
-      // Fetch the document first to ensure it belongs to the user
       DocumentSnapshot docSnapshot = await _healthIssuesCollection.doc(issue.id).get();
-      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != _currentUserId) {
+      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)["userId"] != _currentUserId) {
           throw Exception("User not authorized to update this issue or issue does not exist");
       }
 
-      // Ensure updatedAt is set and userId is correct
       Map<String, dynamic> issueData = issue.toFirestore();
-      issueData['updatedAt'] = Timestamp.now();
-      issueData['userId'] = _currentUserId; // Re-affirm userId for security
+      issueData["updatedAt"] = Timestamp.now();
+      issueData["userId"] = _currentUserId; 
 
       await _healthIssuesCollection.doc(issue.id).update(issueData);
     } catch (e) {
@@ -84,23 +99,23 @@ class HealthIssueService {
 
   // Add an update/log to a health issue
   Future<void> addHealthIssueUpdate(
-      String issueId, HealthIssueUpdate update) async {
-    if (_currentUserId == null) {
-        throw Exception("User not logged in");
+      String issueId, HealthIssueUpdate update, String userId) async { // Added userId parameter
+    if (userId.isEmpty) { // Check passed userId
+        throw Exception("User not logged in or userId not provided");
     }
     try {
-      // First, verify the main issue belongs to the current user before adding an update
       DocumentSnapshot issueDoc = await _healthIssuesCollection.doc(issueId).get();
-      if (!issueDoc.exists || (issueDoc.data() as Map<String, dynamic>)['userId'] != _currentUserId) {
+      if (!issueDoc.exists || (issueDoc.data() as Map<String, dynamic>)["userId"] != userId) {
           throw Exception("User not authorized to update this issue or issue does not exist");
       }
+      Map<String, dynamic> updateData = update.toFirestore();
+      updateData["userId"] = userId; // Ensure userId is part of the update document for potential future queries/rules
 
       await _healthIssuesCollection
           .doc(issueId)
-          .collection('issue_updates')
-          .add(update.toFirestore());
-      // Also update the 'updatedAt' timestamp of the main health issue
-      await _healthIssuesCollection.doc(issueId).update({'updatedAt': Timestamp.now()});
+          .collection("issue_updates")
+          .add(updateData);
+      await _healthIssuesCollection.doc(issueId).update({"updatedAt": Timestamp.now()});
     } catch (e) {
       print("Error adding health issue update: $e");
       rethrow;
@@ -112,10 +127,12 @@ class HealthIssueService {
      if (_currentUserId == null) {
       return Stream.value([]);
     }
+    // Assuming issue_updates don"t need direct userId check if main issue is already verified for user
+    // Or, if issue_updates also store userId, you could add .where("userId", isEqualTo: _currentUserId)
     return _healthIssuesCollection
         .doc(issueId)
-        .collection('issue_updates')
-        .orderBy('updateDate', descending: true)
+        .collection("issue_updates")
+        .orderBy("updateDate", descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
@@ -130,37 +147,17 @@ class HealthIssueService {
       throw Exception("User not logged in");
     }
     try {
-      String fileName = file.path.split('/').last;
-      String fullPath = 'user_uploads/$_currentUserId/$path/$fileName'; // User-specific path
+      String fileName = file.path.split("/").last;
+      String fullPath = "user_uploads/$_currentUserId/$path/$fileName";
       Reference storageRef = _storage.ref().child(fullPath);
       UploadTask uploadTask = storageRef.putFile(file);
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
-      return {'fileName': fileName, 'downloadURL': downloadURL};
+      return {"fileName": fileName, "downloadURL": downloadURL};
     } catch (e) {
       print("Error uploading file: $e");
       return null;
     }
   }
-
-  // Delete a health issue (Optional, implement if needed later)
-  // Future<void> deleteHealthIssue(String issueId) async {
-  //   if (_currentUserId == null) {
-  //       throw Exception("User not logged in");
-  //   }
-  //   try {
-  //     // Add security check: ensure the issue belongs to the current user
-  //     DocumentSnapshot issueDoc = await _healthIssuesCollection.doc(issueId).get();
-  //     if (!issueDoc.exists || (issueDoc.data() as Map<String, dynamic>)['userId'] != _currentUserId) {
-  //         throw Exception("User not authorized to delete this issue or issue does not exist");
-  //     }
-  //     // Note: Deleting a document does not automatically delete its subcollections.
-  //     // If issue_updates need to be deleted, it requires a separate process (e.g., a cloud function).
-  //     await _healthIssuesCollection.doc(issueId).delete();
-  //   } catch (e) {
-  //     print("Error deleting health issue: $e");
-  //     rethrow;
-  //   }
-  // }
 }
 
