@@ -12,7 +12,7 @@ class HealthIssue {
   final String? doctorClinic;
   final bool isRecurring;
   final Timestamp? nextFollowUpDate;
-  final List<Map<String, String>>? fileUploads; // { "fileName": "...", "downloadURL": "..." }
+  final List<Map<String, String>>? fileUploads; // { "fileName": "...", "downloadURL": "...", "description": "...", "fileId": "..."}
   final Timestamp createdAt;
   Timestamp updatedAt;
 
@@ -71,6 +71,41 @@ class HealthIssue {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
+  }
+
+  // copyWith method
+  HealthIssue copyWith({
+    String? id,
+    String? userId,
+    String? issueName,
+    Timestamp? startDate,
+    String? severityLevel,
+    String? status,
+    String? symptoms,
+    String? medications,
+    String? doctorClinic,
+    bool? isRecurring,
+    Timestamp? nextFollowUpDate,
+    List<Map<String, String>>? fileUploads,
+    Timestamp? createdAt,
+    Timestamp? updatedAt,
+  }) {
+    return HealthIssue(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      issueName: issueName ?? this.issueName,
+      startDate: startDate ?? this.startDate,
+      severityLevel: severityLevel ?? this.severityLevel,
+      status: status ?? this.status,
+      symptoms: symptoms ?? this.symptoms,
+      medications: medications ?? this.medications,
+      doctorClinic: doctorClinic ?? this.doctorClinic,
+      isRecurring: isRecurring ?? this.isRecurring,
+      nextFollowUpDate: nextFollowUpDate ?? this.nextFollowUpDate,
+      fileUploads: fileUploads ?? this.fileUploads,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }
 
