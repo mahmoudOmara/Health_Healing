@@ -139,15 +139,22 @@ class HealthIssueService {
   }
 
   // Upload a file to Firebase Storage and return its name, URL, and description
-  Future<Map<String, String>?> uploadFileWithDescription(File file, String path, String description, String originalFileName) async {
+  Future<Map<String, String>?> uploadFileWithDescription(File file, String issueId, String description, String originalFileName) async {
     if (_currentUserId == null) {
       throw Exception("User not logged in");
     }
+    if (issueId.isEmpty) {
+      throw Exception("Issue ID cannot be empty for file upload");
+    }
     try {
-      // Use the original file name for storage to maintain consistency
-      String fullPath = "user_uploads/$_currentUserId/$path/$originalFileName";
-      Reference storageRef = _storage.ref().child(fullPath);
+      String storagePath = "user_uploads/$_currentUserId/health_issues/$issueId/$originalFileName";
+      Reference storageRef = _storage.ref().child(storagePath);
+      
+      // Optional: Add metadata if needed, e.g., content type
+      // final metadata = SettableMetadata(contentType: "image/jpeg"); // Example for image
+      // UploadTask uploadTask = storageRef.putFile(file, metadata);
       UploadTask uploadTask = storageRef.putFile(file);
+      
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
       return {
@@ -156,8 +163,13 @@ class HealthIssueService {
         "description": description
       };
     } catch (e) {
-      print("Error uploading file with description: $e");
-      return null;
+      print("Error uploading file with description to Firebase Storage: $e");
+      // More specific error handling if possible
+      if (e is FirebaseException) {
+        print("Firebase Storage Error Code: ${e.code}");
+        print("Firebase Storage Error Message: ${e.message}");
+      }
+      rethrow; // Rethrow to allow UI to catch and display message
     }
   }
 }
