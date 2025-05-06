@@ -87,10 +87,8 @@ class HealthIssueService {
 
       // Log follow-up date change
       if (issue.nextFollowUpDate != oldFollowUpDate) {
-        print("DEBUG: Attempting to log follow-up change. New: ${issue.nextFollowUpDate?.toDate().toIso8601String()}, Old: ${oldFollowUpDate?.toDate().toIso8601String()}");
         String logText;
         if (issue.nextFollowUpDate != null) {
-          // Using agreed format, ensure DateFormat is robust
           String formattedDate = DateFormat('MMM d, yyyy HH:mm').format(issue.nextFollowUpDate!.toDate());
           if (oldFollowUpDate == null) {
             logText = "Follow-up scheduled for: $formattedDate";
@@ -100,21 +98,12 @@ class HealthIssueService {
         } else {
           logText = "Follow-up cancelled"; 
         }
-        print("DEBUG: Follow-up log text: $logText");
         HealthIssueUpdate followUpLog = HealthIssueUpdate(
           updateText: logText,
           updateDate: Timestamp.now(),
         );
-        try {
-          await addHealthIssueUpdate(issue.id!, followUpLog);
-          print("DEBUG: Successfully logged follow-up change for issue ${issue.id!}");
-        } catch (e) {
-          print("DEBUG: ERROR explicitly logging follow-up change: $e");
-        }
-      } else {
-        print("DEBUG: No follow-up change detected to log. New: ${issue.nextFollowUpDate?.toDate().toIso8601String()}, Old: ${oldFollowUpDate?.toDate().toIso8601String()}");
+        await addHealthIssueUpdate(issue.id!, followUpLog);
       }
-
     } catch (e) {
       print("Error updating health issue: $e");
       rethrow;
