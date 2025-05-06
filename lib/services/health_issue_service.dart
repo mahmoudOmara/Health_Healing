@@ -139,7 +139,8 @@ class HealthIssueService {
       String? mimeType = mime(p.basename(file.path));
       final metadata = SettableMetadata(contentType: mimeType ?? "application/octet-stream");
 
-      UploadTask uploadTask = storageRef.putFile(file, metadata);
+      // UploadTask uploadTask = storageRef.putFile(file, metadata);
+      UploadTask uploadTask = storageRef.putFile(file); // Temporarily removed metadata for testing
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
       
