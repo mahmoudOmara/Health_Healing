@@ -22,6 +22,7 @@ class HealthIssueDetailScreen extends StatefulWidget {
 class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   final HealthIssueService _healthIssueService = HealthIssueService();
   late HealthIssue _currentIssue;
+  bool _isDeletingFile = false;
 
   @override
   void initState() {
@@ -29,22 +30,21 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     _currentIssue = widget.healthIssue;
   }
 
-  void _refreshIssueDetails() async {
-    if (widget.healthIssue.id != null) {
-      if (!mounted) return;
-      try {
-        final updatedIssue = await _healthIssueService.getHealthIssueStream(widget.healthIssue.id!).first;
-        if (mounted) {
-          setState(() {
-            _currentIssue = updatedIssue;
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error refreshing issue details: ${e.toString()}')),
-          );
-        }
+  Future<void> _refreshIssueDetails() async {
+    if (widget.healthIssue.id == null) return;
+    if (!mounted) return;
+    try {
+      final updatedIssue = await _healthIssueService.getHealthIssueStream(widget.healthIssue.id!).first;
+      if (mounted) {
+        setState(() {
+          _currentIssue = updatedIssue;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error refreshing issue details: ${e.toString()}')),
+        );
       }
     }
   }
@@ -64,9 +64,14 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             right: 16.0,
             top: 20.0,
           ),
-          child: _AddUpdateBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onUpdateAdded: () {
-            _refreshIssueDetails();
-          }),
+          child: _AddUpdateBottomSheetContent(
+            healthIssue: _currentIssue,
+            healthIssueService: _healthIssueService,
+            onUpdateAdded: () {
+              Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
+              _refreshIssueDetails();
+            }
+          ),
         );
       },
     );
@@ -87,9 +92,14 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             right: 16.0,
             top: 20.0,
           ),
-          child: _UploadFileBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onFileUploaded: () {
-            _refreshIssueDetails();
-          }),
+          child: _UploadFileBottomSheetContent(
+            healthIssue: _currentIssue,
+            healthIssueService: _healthIssueService,
+            onFileUploaded: () {
+              Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
+              _refreshIssueDetails();
+            }
+          ),
         );
       },
     );
@@ -110,12 +120,19 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             right: 16.0,
             top: 20.0,
           ),
-          child: _BookFollowUpBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onFollowUpBooked: () {
-            _refreshIssueDetails(); 
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Follow-up details noted.')),
-            );
-          }),
+          child: _BookFollowUpBottomSheetContent(
+            healthIssue: _currentIssue,
+            healthIssueService: _healthIssueService,
+            onFollowUpBooked: () {
+              Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
+              _refreshIssueDetails();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Follow-up details noted.')),
+                );
+              }
+            }
+          ),
         );
       },
     );
@@ -136,12 +153,19 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             right: 16.0,
             top: 20.0,
           ),
-          child: _AddReminderBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onReminderAdded: () {
-            _refreshIssueDetails(); 
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Reminder details noted.')),
-            );
-          }),
+          child: _AddReminderBottomSheetContent(
+            healthIssue: _currentIssue,
+            healthIssueService: _healthIssueService,
+            onReminderAdded: () {
+              Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
+              _refreshIssueDetails();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reminder details noted.')),
+                );
+              }
+            }
+          ),
         );
       },
     );
@@ -193,7 +217,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                           const SnackBar(content: Text('Description updated successfully!')),
                         );
                         _refreshIssueDetails();
-                        Navigator.of(dialogContext).pop();
+                        Navigator.of(dialogContext).pop(); // Close dialog after saving
                       }
                     } catch (e) {
                       if (parentContext.mounted) {
@@ -239,7 +263,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                   Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(dialogContext).size.height * 0.5, 
+                        maxHeight: MediaQuery.of(dialogContext).size.height * 0.5,
                       ),
                       child: Image.network(
                         downloadURL,
@@ -256,7 +280,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                         },
                         errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
                           return Column(
-                            mainAxisSize: MainAxisSize.min,
+                           // Corrected: Removed mainAxisSize from Column as Text widget does not have it. It is on Column itself.
                             children: [
                               Icon(_getIconForFileType(fileName!), size: 60.0, color: Theme.of(context).colorScheme.error),
                               const SizedBox(height: 8),
@@ -304,13 +328,62 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                 Navigator.of(dialogContext).pop();
               },
             ),
-            // Optional: Add a download/open button here later if needed
           ],
         );
       },
     );
   }
 
+  Future<void> _deleteFile(Map<String, String> fileData) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: Text('Are you sure you want to delete the file "${fileData['fileName'] ?? 'this file'}"?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Theme.of(dialogContext).colorScheme.error),
+              child: const Text('Delete'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+      setState(() {
+        _isDeletingFile = true;
+      });
+      try {
+        await _healthIssueService.deleteFileFromIssue(_currentIssue.id!, fileData);
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File deleted successfully.')),
+            );
+        }
+        _refreshIssueDetails();
+      } catch (e) {
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete file: ${e.toString()}')),
+            );
+        }
+      } finally {
+        if (mounted) {
+            setState(() {
+            _isDeletingFile = false;
+            });
+        }
+      }
+    }
+  }
 
   Widget _buildActionHub(BuildContext context) {
     String formatButtonLabel(String label) {
@@ -320,7 +393,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             middle = label.indexOf(" ");
              return "${label.substring(0, middle)}\n${label.substring(middle + 1)}";
         } else {
-            return "$label\n "; 
+            return "$label\n ";
         }
       }
       return label;
@@ -329,7 +402,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, 
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _buildStyledCompactActionButton(context, icon: Icons.update, label: formatButtonLabel("Add Update"), onPressed: _showAddUpdateBottomSheet),
           const SizedBox(width: 5.0),
@@ -362,7 +435,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                 Icon(icon, size: 28.0, color: Theme.of(context).primaryColor),
                 const SizedBox(height: 8.0),
                 Container(
-                  height: 30, 
+                  height: 30,
                   alignment: Alignment.center,
                   child: Text(
                     label,
@@ -379,7 +452,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
       ),
     );
   }
-  
+
   bool _isImageFileForThumbnail(String? fileName) {
     if (fileName == null) return false;
     final extension = p.extension(fileName).toLowerCase();
@@ -389,7 +462,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   IconData _getIconForFileType(String fileName) {
     final extension = p.extension(fileName).toLowerCase();
     if ([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension)) {
-      return Icons.image_outlined; // Placeholder, as thumbnail will be used
+      return Icons.image_outlined;
     } else if (extension == ".pdf") {
       return Icons.picture_as_pdf_outlined;
     } else if ([".doc", ".docx", ".odt"].contains(extension)) {
@@ -408,7 +481,8 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     return Icons.attach_file_outlined;
   }
 
-  List<Widget> _getAppBarActions(BuildContext context) {   return [
+  List<Widget> _getAppBarActions(BuildContext context) {
+    return [
       IconButton(
         icon: const Icon(Icons.edit),
         tooltip: 'Edit Issue',
@@ -419,8 +493,8 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               builder: (context) => AddEditHealthIssueScreen(healthIssue: _currentIssue),
             ),
           );
-          if (result == true || result == null) { 
-            _refreshIssueDetails();
+          if (result == true || result == null) {
+             if(mounted) _refreshIssueDetails();
           }
         },
       ),
@@ -434,10 +508,12 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
         title: Text(_currentIssue.issueName),
         actions: _getAppBarActions(context),
       ),
+      // Corrected: SingleChildScrollView uses named parameters
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          // Corrected: Bracket for children list and overall structure
           children: <Widget>[
             _buildActionHub(context),
             const SizedBox(height: 10),
@@ -452,14 +528,15 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               if (_currentIssue.medications != null && _currentIssue.medications!.isNotEmpty)
                 _buildInfoRow('Medications:', _currentIssue.medications!),
               if (_currentIssue.doctorClinic != null && _currentIssue.doctorClinic!.isNotEmpty)
-                _buildInfoRow("Doctor/Clinic:", _currentIssue.doctorClinic!),
+                _buildInfoRow('Doctor/Clinic:', _currentIssue.doctorClinic!),
               _buildInfoRow('Recurring Issue:', _currentIssue.isRecurring ? 'Yes' : 'No'),
               if (_currentIssue.nextFollowUpDate != null)
                 _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(_currentIssue.nextFollowUpDate!.toDate())),
-            ]),
+            ]), // End of _buildInfoCard children list
             const SizedBox(height: 20),
+            // Corrected: Syntax for _buildSectionTitle call
             _buildSectionTitle('Uploaded Files'),
-            Builder( 
+            Builder(
               builder: (context) {
                 if (_currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty) {
                   return const Padding(
@@ -467,126 +544,76 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                     child: Center(child: Text('No files uploaded for this issue yet.')),
                   );
                 }
-
                 List<Widget> fileWidgets = [];
                 for (int i = 0; i < _currentIssue.fileUploads!.length; i++) {
                   final file = _currentIssue.fileUploads![i];
                   fileWidgets.add(
                     Card(
-                      elevation: 1.0, 
+                      elevation: 1.0,
                       margin: const EdgeInsets.symmetric(vertical: 4.0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                       child: ListTile(
-                        leading: Container( 
-                          width: 56.0,
-                          height: 56.0,
+                        leading: Container(
+                          width: 50.0,
+                          height: 50.0,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(8.0),
+                            color: Theme.of(context).colorScheme.surfaceVariant,
+                            borderRadius: BorderRadius.circular(4.0),
                           ),
-                          child: _isImageFileForThumbnail(file['fileName']) && file['downloadURL'] != null
+                          child: _isImageFileForThumbnail(file['fileName']!) && file['downloadURL'] != null
                               ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8.0),
+                                  borderRadius: BorderRadius.circular(4.0),
                                   child: Image.network(
                                     file['downloadURL']!,
-                                    fit: BoxFit.cover,
-                                    width: 56.0,
-                                    height: 56.0,
-                                    loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                                    width: 50, height: 50, fit: BoxFit.cover,
+                                    errorBuilder: (ctx, err, st) => Icon(_getIconForFileType(file['fileName']!), size: 24),
+                                    loadingBuilder: (ctx, child, loadingProgress) {
                                       if (loadingProgress == null) return child;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.0,
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                                      return Icon(_getIconForFileType(file['fileName']!), size: 28.0, color: Theme.of(context).colorScheme.primary);
+                                      return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.0)));
                                     },
                                   ),
                                 )
-                              : Icon(_getIconForFileType(file['fileName']!), size: 28.0, color: Theme.of(context).colorScheme.primary),
+                              : Icon(_getIconForFileType(file['fileName']!), size: 24, color: Theme.of(context).colorScheme.primary),
                         ),
-                        title: Text(
-                          file['fileName'] ?? 'Unknown File',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          file['description'] != null && file['description']!.isNotEmpty ? file['description']! : 'No description',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                             mainAxisSize: MainAxisSize.min,
+                        title: Text(file['fileName'] ?? 'Unnamed File', style: Theme.of(context).textTheme.titleSmall, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(file['description'] ?? 'No description', style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              color: Theme.of(context).colorScheme.secondary,
+                              icon: const Icon(Icons.edit_outlined, size: 20),
                               tooltip: 'Edit Description',
-                              onPressed: () {
-                                _showEditDescriptionDialog(context, file);
-                              },
+                              onPressed: () => _showEditDescriptionDialog(context, file),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              color: Theme.of(context).colorScheme.error,
+                              icon: const Icon(Icons.delete_outline, size: 20),
                               tooltip: 'Delete File',
-                              onPressed: () async {
-                                // TODO: Implement file deletion logic from storage and Firestore array
-                                // This will require updating the HealthIssue document and deleting from Firebase Storage
-                                final confirmDelete = await showDialog<bool>(
-                                  context: context,
-                                  builder: (BuildContext dialogContext) => AlertDialog(
-                                    title: const Text('Confirm Delete'),
-                                    content: Text('Are you sure you want to delete ${file['fileName'] ?? 'this file'}? This action cannot be undone.'),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        onPressed: () => Navigator.of(dialogContext).pop(false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.of(dialogContext).pop(true),
-                                        child: const Text('Delete'),
-                                        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirmDelete == true) {
-                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Deletion for ${file['fileName'] ?? 'file'} (To be implemented).')),
-                                  );
-                                  // Actual deletion logic will be implemented in a later task if requested
-                                }
-                              },
+                              color: Theme.of(context).colorScheme.error,
+                              onPressed: _isDeletingFile ? null : () => _deleteFile(file),
                             ),
                           ],
                         ),
-                        onTap: () {
-                          _showFilePreviewModal(context, file);
-                        },
+                        onTap: () => _showFilePreviewModal(context, file),
                       ),
                     ),
                   );
-                  // Separator removed as per user request
                 }
                 return Column(children: fileWidgets);
               },
-            )'History Timeline'),
+            ),
+            const SizedBox(height: 20),
+            _buildSectionTitle('History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
-              stream: _healthIssueService.getHealthIssueUpdates(_currentIssue.id!),
+              stream: _healthIssueService.getIssueUpdatesStream(_currentIssue.id!),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error loading updates: ${snapshot.error}'));
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No updates or logs for this issue yet.'));
+                  return const Center(child: Text('No updates or history for this issue yet.'));
                 }
                 final updates = snapshot.data!;
                 return ListView.builder(
@@ -596,45 +623,22 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                   itemBuilder: (context, index) {
                     final update = updates[index];
                     return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              DateFormat.yMMMd().add_jm().format(update.updateDate.toDate()),
-                              style: Theme.of(context).textTheme.bodySmall
-                            ),
-                            const SizedBox(height: 4),
-                            Text(update.updateText, style: Theme.of(context).textTheme.bodyLarge),
-                            if (update.files != null && update.files!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Attached Files:', style: Theme.of(context).textTheme.titleSmall),
-                                    ...update.files!.map((file) => ListTile(
-                                          leading: Icon(_getIconForFileType(file['fileName']!), size: 18),
-                                          title: Text(file['fileName']!, style: const TextStyle(fontSize: 14)),
-                                          dense: true,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
+                      margin: const EdgeInsets.symmetric(vertical: 4.0),
+                      elevation: 1.0,
+                      child: ListTile(
+                        title: Text(update.updateText, style: Theme.of(context).textTheme.bodyMedium),
+                        subtitle: Text('On: ${DateFormat.yMd().add_jm().format(update.updateDate.toDate())}', style: Theme.of(context).textTheme.bodySmall),
+                        // You can add more details or actions for each update if needed
                       ),
                     );
                   },
                 );
               },
             ),
-          ],
-        ),
-      ),
-    );
+          ], // End of main Column children
+        ), // End of Column
+      ), // End of SingleChildScrollView
+    ); // End of Scaffold
   }
 
   Widget _buildSectionTitle(String title) {
@@ -642,7 +646,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -650,6 +654,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   Widget _buildInfoCard(List<Widget> children) {
     return Card(
       elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -665,16 +670,16 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value)),
+        children: <Widget>[
+          Expanded(flex: 2, child: Text(label, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text(value, style: Theme.of(context).textTheme.titleSmall)),
         ],
       ),
     );
   }
 }
 
+// Bottom Sheet for Adding Updates
 class _AddUpdateBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
   final HealthIssueService healthIssueService;
@@ -703,49 +708,29 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
 
   Future<void> _submitUpdate() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error: You must be logged in to add an update.')),
-          );
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      final newUpdate = HealthIssueUpdate(
-        updateText: _updateTextController.text.trim(),
-        updateDate: Timestamp.now(),
-        files: [], 
-      );
-
+      setState(() { _isLoading = true; });
       try {
-        await widget.healthIssueService.addHealthIssueUpdate(widget.healthIssue.id!, newUpdate, user.uid);
+        final update = HealthIssueUpdate(
+          id: FirebaseFirestore.instance.collection('healthIssues').doc().collection('updates').doc().id, // Firestore generates ID
+          updateText: _updateTextController.text.trim(),
+          updateDate: Timestamp.now(),
+        );
+        await widget.healthIssueService.addHealthIssueUpdate(widget.healthIssue.id!, update);
+        widget.onUpdateAdded();
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Update added successfully!')),
+            const SnackBar(content: Text('Update added successfully!')),
             );
-            Navigator.pop(context); 
-            widget.onUpdateAdded(); 
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to add update: ${e.toString()}')),
-          );
+            );
         }
       } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+            setState(() { _isLoading = false; });
         }
       }
     }
@@ -756,45 +741,46 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
     return Form(
       key: _formKey,
       child: Column(
-        mainAxisSize: MainAxisSize.min, 
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          Text('Add New Update/Log', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16.0),
           TextFormField(
             controller: _updateTextController,
             decoration: const InputDecoration(
               labelText: 'Update Details',
-              hintText: 'Enter notes about the update...',
+              hintText: 'Enter details about the update or log...',
               border: OutlineInputBorder(),
             ),
             maxLines: 4,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Update text cannot be empty.';
+                return 'Please enter update details.';
               }
               return null;
             },
           ),
-          const SizedBox(height: 16.0),
+          const SizedBox(height: 20.0),
           _isLoading
-              ? const Center(child: CircularProgressIndicator()) 
-              : SizedBox(
-                  width: double.infinity, 
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.save_alt_outlined), 
-                    label: const Text(
-                        'Save Update'), 
-                    onPressed: _submitUpdate,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0), 
-                    ),
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton.icon(
+                  icon: const Icon(Icons.save_alt_outlined),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    textStyle: const TextStyle(fontSize: 16.0),
                   ),
+                  onPressed: _submitUpdate,
+                  label: const Text('Save Update'),
                 ),
-          const SizedBox(height: 24.0), 
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
   }
 }
 
+// Bottom Sheet for Uploading Files
 class _UploadFileBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
   final HealthIssueService healthIssueService;
@@ -811,10 +797,10 @@ class _UploadFileBottomSheetContent extends StatefulWidget {
 }
 
 class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetContent> {
-  final _formKey = GlobalKey<FormState>(); // Can be used if more validation is added
+  final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   File? _selectedFile;
-  String? _originalFileName;
+  String? _selectedFileName;
   bool _isLoading = false;
 
   @override
@@ -825,83 +811,46 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
+    if (result != null) {
       setState(() {
         _selectedFile = File(result.files.single.path!);
-        _originalFileName = result.files.single.name;
+        _selectedFileName = result.files.single.name;
       });
-    } else {
-      // User canceled the picker
     }
   }
 
-  bool _isImageFile(String? path) {
-    if (path == null) return false;
-    final extension = p.extension(path).toLowerCase();
-    return [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension);
-  }
-
-  Future<void> _submitUpload() async {
+  Future<void> _submitFile() async {
     if (_selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick a file first.')),
+        const SnackBar(content: Text('Please select a file to upload.')),
       );
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final uploadResult = await widget.healthIssueService.uploadFileWithDescription(
-        _selectedFile!,
-        widget.healthIssue.id!, 
-        _descriptionController.text.trim(),
-        _originalFileName ?? 'unknown_file' 
-      );
-
-      if (uploadResult == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File upload failed: Service did not return details.')),
-          );
-        }
-      } else if (mounted) {
-         if (uploadResult.containsKey('fileName') && uploadResult.containsKey('downloadURL')) {
-            List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
-            updatedFileUploads.add({
-              'fileId': DateTime.now().millisecondsSinceEpoch.toString(), 
-              'fileName': uploadResult['fileName']!,
-              'downloadURL': uploadResult['downloadURL']!,
-              'description': _descriptionController.text.trim(),
-            });
-
-            HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads, updatedAt: Timestamp.now());
-            await widget.healthIssueService.updateHealthIssue(issueToUpdate);
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('File uploaded successfully!')),
-            );
-            Navigator.pop(context); 
-            widget.onFileUploaded(); 
-          } else {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('File upload failed: Result missing required keys.')),
-            );
-          }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload file: ${e.toString()}')),
+    if (_formKey.currentState!.validate()) {
+      setState(() { _isLoading = true; });
+      try {
+        await widget.healthIssueService.uploadFileWithDescription(
+          _selectedFile!,
+          widget.healthIssue.id!,
+          _descriptionController.text.trim(),
+          _selectedFileName ?? "unknown_file",
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        widget.onFileUploaded();
+         if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File uploaded successfully!')),
+            );
+        }
+      } catch (e) {
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to upload file: ${e.toString()}')),
+            );
+        }
+      } finally {
+        if (mounted) {
+            setState(() { _isLoading = false; });
+        }
       }
     }
   }
@@ -909,30 +858,12 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
   @override
   Widget build(BuildContext context) {
     return Form(
-      key: _formKey, 
+      key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          ElevatedButton.icon(
-            icon: const Icon(Icons.attach_file_outlined),
-            label: const Text('Pick File'),
-            onPressed: _pickFile,
-            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)), // Make pick file button full width
-          ),
-          if (_selectedFile != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              child: _isImageFile(_selectedFile!.path)
-                  ? Image.file(_selectedFile!, height: 100, fit: BoxFit.cover)
-                  : Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Icon(
-                      Icons.insert_drive_file_outlined,
-                      size: 60, 
-                      color: Theme.of(context).primaryColorLight,
-                    ),
-                  )
-            ),
+          Text('Upload New File', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16.0),
           TextFormField(
             controller: _descriptionController,
@@ -943,28 +874,67 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
             ),
             maxLines: 2,
           ),
-          const SizedBox(height: 24.0),
+          const SizedBox(height: 16.0),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.attach_file),
+            label: Text(_selectedFileName ?? 'Select File'),
+            onPressed: _pickFile,
+          ),
+          if (_selectedFile != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: _isImageFileForThumbnail(_selectedFileName) 
+                ? Image.file(_selectedFile!, height: 100, fit: BoxFit.contain)
+                : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(_getIconForFileType(_selectedFileName!)), const SizedBox(width: 8), Text(_selectedFileName!)]),
+            ),
+          const SizedBox(height: 20.0),
           _isLoading
-              ? const Center(child: CircularProgressIndicator()) 
-              : SizedBox(
-                  width: double.infinity, 
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.cloud_upload_outlined), 
-                    label: const Text(
-                        'Upload and Save File'), 
-                    onPressed: _submitUpload,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0), 
-                    ),
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton.icon(
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    textStyle: const TextStyle(fontSize: 16.0),
                   ),
+                  onPressed: _submitFile,
+                  label: const Text('Upload and Save File'),
                 ),
-          const SizedBox(height: 24.0), 
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
   }
+
+  bool _isImageFileForThumbnail(String? fileName) {
+    if (fileName == null) return false;
+    final extension = p.extension(fileName).toLowerCase();
+    return [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension);
+  }
+
+  IconData _getIconForFileType(String fileName) {
+    final extension = p.extension(fileName).toLowerCase();
+    if ([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension)) {
+      return Icons.image_outlined;
+    } else if (extension == ".pdf") {
+      return Icons.picture_as_pdf_outlined;
+    } else if ([".doc", ".docx", ".odt"].contains(extension)) {
+      return Icons.description_outlined;
+    } else if ([".xls", ".xlsx", ".ods"].contains(extension)) {
+      return Icons.table_chart_outlined;
+    } else if ([".ppt", ".pptx", ".odp"].contains(extension)) {
+      return Icons.slideshow_outlined;
+    } else if ([".zip", ".rar", ".tar", ".gz"].contains(extension)) {
+      return Icons.archive_outlined;
+    } else if ([".mp3", ".wav", ".aac"].contains(extension)) {
+      return Icons.audiotrack_outlined;
+    } else if ([".mp4", ".mov", ".avi"].contains(extension)) {
+      return Icons.video_file_outlined;
+    }
+    return Icons.attach_file_outlined;
+  }
 }
 
+// Bottom Sheet for Booking Follow-up
 class _BookFollowUpBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
   final HealthIssueService healthIssueService;
@@ -987,6 +957,13 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.healthIssue.nextFollowUpDate?.toDate();
+    // In a real app, you might fetch existing notes if they were stored separately for follow-ups
+  }
+
+  @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
@@ -996,8 +973,8 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -1014,32 +991,24 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
         );
         return;
       }
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() { _isLoading = true; });
       try {
         HealthIssue updatedIssue = widget.healthIssue.copyWith(
           nextFollowUpDate: Timestamp.fromDate(_selectedDate!),
-          // Potentially save notes somewhere, e.g., as a new HealthIssueUpdate or a dedicated field
-          // For now, we are just updating the nextFollowUpDate on the main issue
+          // Potentially save _notesController.text to a new field in HealthIssue or a separate follow-up model
           updatedAt: Timestamp.now(),
         );
         await widget.healthIssueService.updateHealthIssue(updatedIssue);
-        if (mounted) {
-          Navigator.pop(context);
-          widget.onFollowUpBooked();
-        }
+        widget.onFollowUpBooked();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save follow-up: ${e.toString()}')),
-          );
+            ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to book follow-up: ${e.toString()}')),
+            );
         }
       } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+            setState(() { _isLoading = false; });
         }
       }
     }
@@ -1051,11 +1020,12 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
       key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text('Book Next Follow-Up', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16.0),
           ListTile(
-            title: Text(_selectedDate == null ? 'Select Date' : DateFormat.yMMMd().format(_selectedDate!)),
+            title: Text(_selectedDate == null ? 'Select Follow-Up Date*' : DateFormat.yMMMEd().format(_selectedDate!)),
             trailing: const Icon(Icons.calendar_today),
             onTap: () => _pickDate(context),
           ),
@@ -1069,27 +1039,26 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
             ),
             maxLines: 3,
           ),
-          const SizedBox(height: 24.0),
+          const SizedBox(height: 20.0),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.save_alt_outlined),
-                    label: const Text('Save Follow-Up'),
-                    onPressed: _submitFollowUp,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    ),
+              : ElevatedButton.icon(
+                  icon: const Icon(Icons.event_available_outlined),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    textStyle: const TextStyle(fontSize: 16.0),
                   ),
+                  onPressed: _submitFollowUp,
+                  label: const Text('Save Follow-Up'),
                 ),
-          const SizedBox(height: 24.0),
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
   }
 }
 
+// Bottom Sheet for Adding Reminder
 class _AddReminderBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
   final HealthIssueService healthIssueService;
@@ -1109,33 +1078,44 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  final _reminderTextController = TextEditingController();
+  final _reminderNotesController = TextEditingController();
   bool _isLoading = false;
 
-   @override
+  @override
+  void initState() {
+    super.initState();
+    // In a real app, you might fetch existing reminder data if available
+  }
+
+ @override
   void dispose() {
-    _reminderTextController.dispose();
+    _reminderNotesController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDateTime(BuildContext context) async {
+  Future<void> _pickReminderDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
     );
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: _selectedTime ?? TimeOfDay.now(),
-      );
-      if (pickedTime != null) {
-        setState(() {
-          _selectedDate = pickedDate;
-          _selectedTime = pickedTime;
-        });
-      }
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
+  Future<void> _pickReminderTime(BuildContext context) async {
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+    );
+    if (pickedTime != null && pickedTime != _selectedTime) {
+      setState(() {
+        _selectedTime = pickedTime;
+      });
     }
   }
 
@@ -1143,14 +1123,12 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
     if (_formKey.currentState!.validate()) {
       if (_selectedDate == null || _selectedTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a date and time for the reminder.')),
+          const SnackBar(content: Text('Please select both date and time for the reminder.')),
         );
         return;
       }
-      setState(() {
-        _isLoading = true;
-      });
-
+      setState(() { _isLoading = true; });
+      
       final reminderDateTime = DateTime(
         _selectedDate!.year,
         _selectedDate!.month,
@@ -1160,18 +1138,27 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
       );
 
       // Placeholder: In a real app, this would integrate with a notification service
-      print('Reminder Set: ${_reminderTextController.text} at $reminderDateTime for issue ${widget.healthIssue.issueName}');
-      
-      // Simulate saving reminder (e.g., could be a field on HealthIssue or separate collection)
-      // For now, we just show a success message and pop.
-      await Future.delayed(const Duration(seconds: 1)); 
-
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        Navigator.pop(context);
+      // For now, we can store it in Firestore if a field exists or just show a message.
+      // Example: Update health issue with reminder details
+      HealthIssue updatedIssue = widget.healthIssue.copyWith(
+        // Assuming you add a field like 'nextReminderAt: Timestamp.fromDate(reminderDateTime)'
+        // and 'reminderNotes: _reminderNotesController.text.trim()'
+        updatedAt: Timestamp.now(),
+      );
+      try {
+        // await widget.healthIssueService.updateHealthIssue(updatedIssue); // If storing in issue
+        // print('Reminder set for: $reminderDateTime with notes: ${_reminderNotesController.text.trim()}');
         widget.onReminderAdded();
+      } catch (e) {
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to set reminder: ${e.toString()}')),
+            );
+        }
+      } finally {
+        if (mounted) {
+            setState(() { _isLoading = false; });
+        }
       }
     }
   }
@@ -1182,46 +1169,43 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
       key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text('Add Reminder', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16.0),
-          TextFormField(
-            controller: _reminderTextController,
-            decoration: const InputDecoration(
-              labelText: 'Reminder Text',
-              hintText: 'e.g., Take medication, Doctor appointment',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Reminder text cannot be empty.';
-              }
-              return null;
-            },
-          ),
+          Text('Add New Reminder', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16.0),
           ListTile(
-            title: Text(_selectedDate == null || _selectedTime == null 
-                ? 'Select Date & Time' 
-                : '${DateFormat.yMMMd().format(_selectedDate!)} ${(_selectedTime ?? TimeOfDay.now()).format(context)}'),
-            trailing: const Icon(Icons.calendar_today_outlined),
-            onTap: () => _pickDateTime(context),
+            title: Text(_selectedDate == null ? 'Select Reminder Date*' : DateFormat.yMMMEd().format(_selectedDate!)),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () => _pickReminderDate(context),
           ),
-          const SizedBox(height: 24.0),
+          ListTile(
+            title: Text(_selectedTime == null ? 'Select Reminder Time*' : _selectedTime!.format(context)),
+            trailing: const Icon(Icons.access_time),
+            onTap: () => _pickReminderTime(context),
+          ),
+          const SizedBox(height: 16.0),
+          TextFormField(
+            controller: _reminderNotesController,
+            decoration: const InputDecoration(
+              labelText: 'Reminder Notes (Optional)',
+              hintText: 'Enter notes for the reminder...',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 20.0),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.alarm_add_outlined),
-                    label: const Text('Set Reminder'),
-                    onPressed: _submitReminder,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    ),
+              : ElevatedButton.icon(
+                  icon: const Icon(Icons.alarm_on_outlined),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    textStyle: const TextStyle(fontSize: 16.0),
                   ),
+                  onPressed: _submitReminder,
+                  label: const Text('Set Reminder'),
                 ),
-          const SizedBox(height: 24.0),
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
