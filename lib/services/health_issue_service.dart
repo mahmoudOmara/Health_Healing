@@ -5,6 +5,7 @@ import "package:firebase_storage/firebase_storage.dart";
 import "package:health_healing/models/health_issue.dart";
 import "package:health_healing/models/health_issue_update.dart";
 import "package:firebase_auth/firebase_auth.dart";
+import 'package:intl/intl.dart'; // Added for date formatting in logs
 import 'package:mime_type/mime_type.dart'; // Added for MIME type detection
 import 'package:path/path.dart' as p; // Added for getting file extension for MIME type
 
@@ -75,10 +76,36 @@ class HealthIssueService {
       if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)["userId"] != _currentUserId) {
         throw Exception("User not authorized to update this issue or issue does not exist");
       }
+
+      HealthIssue oldIssue = HealthIssue.fromFirestore(docSnapshot);
+      Timestamp? oldFollowUpDate = oldIssue.nextFollowUpDate;
+
       Map<String, dynamic> issueData = issue.toFirestore();
       issueData["updatedAt"] = Timestamp.now();
       issueData["userId"] = _currentUserId;
       await _healthIssuesCollection.doc(issue.id!).update(issueData);
+
+      // Log follow-up date change
+      if (issue.nextFollowUpDate != oldFollowUpDate) {
+        String logText;
+        if (issue.nextFollowUpDate != null) {
+          String formattedDate = DateFormat('MMM d, yyyy HH:mm').format(issue.nextFollowUpDate!.toDate());
+          if (oldFollowUpDate == null) {
+            logText = "Follow-up scheduled for: $formattedDate";
+          } else {
+            logText = "Follow-up updated to: $formattedDate";
+          }
+        } else {
+          // This case means the follow-up was removed
+          logText = "Follow-up cancelled"; 
+        }
+        HealthIssueUpdate followUpLog = HealthIssueUpdate(
+          updateText: logText,
+          updateDate: Timestamp.now(),
+        );
+        await addHealthIssueUpdate(issue.id!, followUpLog);
+      }
+
     } catch (e) {
       print("Error updating health issue: $e");
       rethrow;
@@ -101,7 +128,8 @@ class HealthIssueService {
           .doc(issueId)
           .collection("issue_updates")
           .add(updateData);
-      await _healthIssuesCollection.doc(issueId).update({"updatedAt": Timestamp.now()});
+      // No need to update the main issue's updatedAt here, as addHealthIssueUpdate is often called *after* an update.
+      // The primary action (like updateHealthIssue or uploadFileWithDescription) should handle updating the main issue's updatedAt.
     } catch (e) {
       print("Error adding health issue update: $e");
       rethrow;
@@ -135,7 +163,6 @@ class HealthIssueService {
       String storagePath = "user_uploads/$_currentUserId/health_issues/$issueId/$originalFileName";
       Reference storageRef = _storage.ref().child(storagePath);
 
-      // Determine MIME type
       String? mimeType = mime(p.basename(file.path));
       final metadata = SettableMetadata(contentType: mimeType ?? "application/octet-stream");
 
@@ -150,13 +177,23 @@ class HealthIssueService {
         "description": description,
         "uploadedAt": Timestamp.now().millisecondsSinceEpoch.toString(),
         "storagePath": storagePath,
-        "mimeType": mimeType ?? "application/octet-stream" // Store MIME type as well
+        "mimeType": mimeType ?? "application/octet-stream"
       };
 
       await _healthIssuesCollection.doc(issueId).update({
         "fileUploads": FieldValue.arrayUnion([fileMetadata]),
         "updatedAt": Timestamp.now(),
       });
+
+      String logText = "File Uploaded: $originalFileName";
+      if (description.isNotEmpty) {
+        logText += " - Description: $description";
+      }
+      HealthIssueUpdate fileLogUpdate = HealthIssueUpdate(
+        updateText: logText,
+        updateDate: Timestamp.now(),
+      );
+      await addHealthIssueUpdate(issueId, fileLogUpdate);
 
       return fileMetadata;
     } catch (e) {
@@ -192,6 +229,14 @@ class HealthIssueService {
         "fileUploads": FieldValue.arrayRemove([fileData]),
         "updatedAt": Timestamp.now(),
       });
+      
+      // Log file deletion
+      String logText = "File Deleted: ${fileData['fileName'] ?? 'Unknown file'}";
+      HealthIssueUpdate deleteLogUpdate = HealthIssueUpdate(
+        updateText: logText,
+        updateDate: Timestamp.now(),
+      );
+      await addHealthIssueUpdate(issueId, deleteLogUpdate);
 
     } catch (e) {
       print("Error deleting file: $e");
@@ -207,5 +252,20 @@ class HealthIssueService {
       rethrow;
     }
   }
+
+  // Placeholder for reminder logging - to be implemented
+  Future<void> addOrUpdateReminder(String issueId, String reminderDetails, {bool isUpdate = false}) async {
+    // Actual reminder saving logic would go here (e.g., to a subcollection or updating the main issue document)
+    // For now, we'll just log the action.
+    String logText = isUpdate ? "Reminder updated: $reminderDetails" : "Reminder set: $reminderDetails";
+    HealthIssueUpdate reminderLog = HealthIssueUpdate(
+      updateText: logText,
+      updateDate: Timestamp.now(),
+    );
+    await addHealthIssueUpdate(issueId, reminderLog);
+    // Also update the main issue's updatedAt timestamp
+    await _healthIssuesCollection.doc(issueId).update({"updatedAt": Timestamp.now()});
+  }
+
 }
 
