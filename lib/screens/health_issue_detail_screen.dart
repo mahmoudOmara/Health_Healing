@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // No longer needed
 import 'package:health_healing/models/health_issue.dart';
 import 'package:health_healing/models/health_issue_update.dart';
 import 'package:health_healing/services/health_issue_service.dart';
@@ -40,24 +39,23 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     }
   }
 
-  // --- Final Action Hub: Compact Icon Buttons in a Row (Refined) ---
   Widget _buildActionHub(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0), // Add some padding around the row
+      padding: const EdgeInsets.symmetric(vertical: 16.0), // Add some vertical padding
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top for multi-line text
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: () {
+          _buildStyledCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: () {
              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
           }),
-          _buildCompactActionButton(context, icon: Icons.upload_file_outlined, label: "Upload File", onPressed: () {
+          _buildStyledCompactActionButton(context, icon: Icons.upload_file_outlined, label: "Upload File", onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
           }),
-          _buildCompactActionButton(context, icon: Icons.calendar_today, label: "Book Follow-Up", onPressed: () {
+          _buildStyledCompactActionButton(context, icon: Icons.calendar_today, label: "Book Follow-Up", onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
           }),
-          _buildCompactActionButton(context, icon: Icons.alarm_add, label: "Add Reminder", onPressed: () {
+          _buildStyledCompactActionButton(context, icon: Icons.alarm_add, label: "Add Reminder", onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
           }),
         ],
@@ -65,20 +63,35 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     );
   }
 
-  Widget _buildCompactActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
+  Widget _buildStyledCompactActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
     return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          IconButton(icon: Icon(icon), onPressed: onPressed, tooltip: label, iconSize: 28.0, color: Theme.of(context).primaryColor),
-          Text(
-            label,
-            textAlign: TextAlign.center, // Center text for two lines
-            style: const TextStyle(fontSize: 12.0),
-            maxLines: 2, // Allow text to wrap to two lines
-            overflow: TextOverflow.ellipsis, // Handle overflow if text is still too long
+      child: Card(
+        elevation: 2.0, // Add shadow
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0), // Rounded frame
+          side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5), width: 1), // Thin rounded frame
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8.0),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(icon, size: 28.0, color: Theme.of(context).primaryColor),
+                const SizedBox(height: 8.0),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12.0),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -95,7 +108,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               builder: (context) => AddEditHealthIssueScreen(healthIssue: _currentIssue),
             ),
           );
-          if (result == true || result == null) { // Refresh if edited or simply popped back
+          if (result == true || result == null) {
             _refreshIssueDetails();
           }
         },
@@ -115,7 +128,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            // Removed UI Style Switcher
             _buildSectionTitle('General Information'),
             _buildInfoCard([
               _buildInfoRow('Issue Name:', _currentIssue.issueName),
@@ -132,7 +144,10 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               if (_currentIssue.nextFollowUpDate != null)
                 _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(_currentIssue.nextFollowUpDate!.toDate())),
             ]),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10), // Adjusted spacing
+            // Action Hub moved here, title removed
+            _buildActionHub(context),
+            const SizedBox(height: 10), // Adjusted spacing
             _buildSectionTitle('Uploaded Files'),
             _currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty
                 ? const Text('No files uploaded for this issue yet.')
@@ -145,9 +160,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                             ))
                         .toList(),
                   ),
-            const SizedBox(height: 20),
-            _buildSectionTitle('Action Hub'),
-            _buildActionHub(context), // Directly use the chosen action hub
             const SizedBox(height: 20),
             _buildSectionTitle('History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
@@ -209,7 +221,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           ],
         ),
       ),
-      // Removed floatingActionButton as SpeedDial is no longer the selected option
     );
   }
 
