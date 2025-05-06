@@ -320,22 +320,27 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                         Widget previewWidget;
                         if (isImage) {
                           previewWidget = SizedBox(
-                            width: 60, height: 60,
+                            width: 50.0, // Standardized width
+                            height: 50.0, // Standardized height
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8.0),
                               child: Image.network(
                                 downloadURL!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Icon(_getIconForFileType(fileName), size: 40),
+                                fit: BoxFit.cover, // Ensure image covers the square area
+                                errorBuilder: (context, error, stackTrace) => const SizedBox(width: 50, height: 50, child: Center(child: Icon(Icons.broken_image, size: 30.0))),
                                 loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
                                   if (loadingProgress == null) return child;
-                                  return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null));
+                                  return const SizedBox(width: 50, height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)));
                                 },
                               )
                             )
                           );
                         } else {
-                          previewWidget = Icon(_getIconForFileType(fileName), size: 40);
+                          previewWidget = SizedBox(
+                            width: 50.0, // Standardized width
+                            height: 50.0, // Standardized height
+                            child: Center(child: Icon(_getIconForFileType(fileName), size: 30.0)), // Centered icon
+                          );
                         }
 
                         return Card(
@@ -380,14 +385,19 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                         Widget previewWidget;
                         if (_isImagePlatformFile(platformFile) && platformFile.path != null) {
                           previewWidget = SizedBox(
-                            width: 60, height: 60,
+                            width: 50.0, // Standardized width
+                            height: 50.0, // Standardized height
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8.0),
-                              child: Image.file(File(platformFile.path!), fit: BoxFit.cover)
+                              child: Image.file(File(platformFile.path!), fit: BoxFit.cover) // Ensure image covers the square area
                             )
                           );
                         } else {
-                          previewWidget = Icon(_getIconForFileType(platformFile.name), size: 40);
+                          previewWidget = SizedBox(
+                            width: 50.0, // Standardized width
+                            height: 50.0, // Standardized height
+                            child: Center(child: Icon(_getIconForFileType(platformFile.name), size: 30.0)), // Centered icon
+                          );
                         }
 
                         return Card(

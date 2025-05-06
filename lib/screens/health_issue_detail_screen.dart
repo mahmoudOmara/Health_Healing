@@ -483,8 +483,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      // Text("General Information", style: Theme.of(context).textTheme.titleLarge), // Removed this line
-                      // const SizedBox(height: 10.0), // Adjusted or removed SizedBox if it was only for the title
                       _buildDetailRow("Status:", _currentIssue.status),
                       _buildDetailRow("Start Date:", DateFormat.yMMMd().format(_currentIssue.startDate.toDate())),
                       _buildDetailRow("Severity:", _currentIssue.severityLevel),
@@ -547,19 +545,27 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
         Widget leadingWidget;
         if (_isImageFileForThumbnail(fileName) && downloadURL != null) {
           leadingWidget = SizedBox(
-            width: 50.0,
-            height: 50.0,
+            width: 50.0, // Standardized width
+            height: 50.0, // Standardized height
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.network(
                 downloadURL,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(_getIconForFileType(fileName!), size: 30.0),
+                fit: BoxFit.cover, // Ensure image covers the square area
+                errorBuilder: (context, error, stackTrace) => const SizedBox(width: 50, height: 50, child: Center(child: Icon(Icons.broken_image, size: 30.0))),
+                loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const SizedBox(width: 50, height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)));
+                },
               ),
             ),
           );
         } else {
-          leadingWidget = Icon(_getIconForFileType(fileName), size: 30.0);
+          leadingWidget = SizedBox(
+            width: 50.0, // Standardized width
+            height: 50.0, // Standardized height
+            child: Center(child: Icon(_getIconForFileType(fileName), size: 30.0)), // Centered icon
+          );
         }
 
         return Card(
@@ -886,9 +892,20 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
     if (_selectedFile != null) {
       final isImage = _isImageFileForThumbnail(_selectedFileName);
       if (isImage) {
-        filePreviewWidget = Image.file(_selectedFile!, height: 100, fit: BoxFit.cover);
+        filePreviewWidget = SizedBox(
+          width: 50.0, // Standardized width
+          height: 50.0, // Standardized height
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: Image.file(_selectedFile!, fit: BoxFit.cover), // Ensure image covers the square area
+          ),
+        );
       } else {
-        filePreviewWidget = Icon(_getIconForFileType(_selectedFileName), size: 50);
+        filePreviewWidget = SizedBox(
+          width: 50.0, // Standardized width
+          height: 50.0, // Standardized height
+          child: Center(child: Icon(_getIconForFileType(_selectedFileName), size: 30.0)), // Centered icon
+        );
       }
     } else {
       filePreviewWidget = const SizedBox.shrink();
