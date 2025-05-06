@@ -1,19 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // Added for Option 2
+// import 'package:flutter_speed_dial/flutter_speed_dial.dart'; // No longer needed
 import 'package:health_healing/models/health_issue.dart';
 import 'package:health_healing/models/health_issue_update.dart';
 import 'package:health_healing/services/health_issue_service.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:health_healing/screens/add_edit_health_issue_screen.dart'; // For editing
 // import 'package:health_healing/screens/add_health_issue_update_screen.dart'); // To be created
-
-enum ActionHubStyle {
-  compactRow,
-  speedDial,
-  appBarMenu,
-  bottomSheetButton,
-  segmentedBar
-}
 
 class HealthIssueDetailScreen extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -27,7 +19,6 @@ class HealthIssueDetailScreen extends StatefulWidget {
 class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   final HealthIssueService _healthIssueService = HealthIssueService();
   late HealthIssue _currentIssue;
-  ActionHubStyle _selectedActionHubStyle = ActionHubStyle.compactRow; // Default style
 
   @override
   void initState() {
@@ -49,25 +40,28 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     }
   }
 
-  // --- Action Hub Option 1: Compact Icon Buttons in a Row (Refined) ---
-  Widget _buildActionHubCompactRow(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top for multi-line text
-      children: <Widget>[
-        _buildCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: () {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
-        }),
-        _buildCompactActionButton(context, icon: Icons.upload_file_outlined, label: "Upload File", onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
-        }),
-        _buildCompactActionButton(context, icon: Icons.calendar_today, label: "Book Follow-Up", onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
-        }),
-        _buildCompactActionButton(context, icon: Icons.alarm_add, label: "Add Reminder", onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
-        }),
-      ],
+  // --- Final Action Hub: Compact Icon Buttons in a Row (Refined) ---
+  Widget _buildActionHub(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0), // Add some padding around the row
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top for multi-line text
+        children: <Widget>[
+          _buildCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: () {
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
+          }),
+          _buildCompactActionButton(context, icon: Icons.upload_file_outlined, label: "Upload File", onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
+          }),
+          _buildCompactActionButton(context, icon: Icons.calendar_today, label: "Book Follow-Up", onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
+          }),
+          _buildCompactActionButton(context, icon: Icons.alarm_add, label: "Add Reminder", onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
+          }),
+        ],
+      ),
     );
   }
 
@@ -88,186 +82,9 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
       ),
     );
   }
-
-  // --- Action Hub Option 2: Floating Action Button (FAB) with Speed Dial ---
-  Widget _buildActionHubSpeedDial(BuildContext context) {
-    return const Center(child: Text("Speed Dial FAB is active (see bottom right)"));
-  }
-
-  SpeedDial _buildSpeedDial() {
-    return SpeedDial(
-      icon: Icons.tune,
-      activeIcon: Icons.close,
-      buttonSize: const Size(56.0, 56.0),
-      visible: true,
-      curve: Curves.bounceIn,
-      overlayColor: Colors.black,
-      overlayOpacity: 0.5,
-      tooltip: 'Actions',
-      heroTag: 'speed-dial-hero-tag',
-      backgroundColor: Theme.of(context).primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 8.0,
-      shape: const CircleBorder(),
-      children: [
-        SpeedDialChild(
-          child: const Icon(Icons.update),
-          backgroundColor: Colors.red,
-          label: 'Add Update',
-          labelStyle: const TextStyle(fontSize: 18.0),
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).'))),
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.upload_file_outlined),
-          backgroundColor: Colors.blue,
-          label: 'Upload File',
-          labelStyle: const TextStyle(fontSize: 18.0),
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).'))),
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.calendar_today),
-          backgroundColor: Colors.green,
-          label: 'Book Follow-Up',
-          labelStyle: const TextStyle(fontSize: 18.0),
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).'))),
-        ),
-         SpeedDialChild(
-          child: const Icon(Icons.alarm_add),
-          backgroundColor: Colors.yellow,
-          label: 'Add Reminder',
-          labelStyle: const TextStyle(fontSize: 18.0, color: Colors.black),
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).'))),
-        ),
-      ],
-    );
-  }
-
-  // --- Action Hub Option 3B: Single "Actions" Button revealing a Bottom Sheet ---
-  Widget _buildActionHubBottomSheetButton(BuildContext context) {
-    return Center(
-      child: ElevatedButton.icon(
-        icon: const Icon(Icons.menu_open),
-        label: const Text("More Actions"),
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            builder: (BuildContext bc) {
-              return SafeArea(
-                child: Wrap(
-                  children: <Widget>[
-                    ListTile(
-                        leading: const Icon(Icons.update),
-                        title: const Text('Add Update'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
-                        }),
-                    ListTile(
-                      leading: const Icon(Icons.upload_file_outlined),
-                      title: const Text('Upload File'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.calendar_today),
-                      title: const Text('Book Follow-Up'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.alarm_add),
-                      title: const Text('Add Reminder'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  // --- Action Hub Option 4: Segmented Control / Horizontal Button Bar ---
-  Widget _buildActionHubSegmentedBar(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.update, size: 18),
-            label: const Text("Add Update", style: TextStyle(fontSize: 11), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).'))),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical:10), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)))),
-          ),
-        ),
-        const SizedBox(width:1),
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.upload_file_outlined, size: 18),
-            label: const Text("Upload File", style: TextStyle(fontSize: 11), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).'))),
-             style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical:10), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-
-          ),
-        ),
-        const SizedBox(width:1),
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.calendar_today, size: 18),
-            label: const Text("Book Follow-Up", style: TextStyle(fontSize: 11), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).'))),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical:10), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
-          ),
-        ),
-        const SizedBox(width:1),
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.alarm_add, size: 18),
-            label: const Text("Add Reminder", style: TextStyle(fontSize: 11), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).'))),
-            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4, vertical:10), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topRight: Radius.circular(8), bottomRight: Radius.circular(8)))),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildUIStyleSwitcher(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Wrap(
-        spacing: 8.0,
-        runSpacing: 4.0,
-        alignment: WrapAlignment.center,
-        children: ActionHubStyle.values.map((style) {
-          if (style == ActionHubStyle.appBarMenu) return const SizedBox.shrink();
-          return ChoiceChip(
-            label: Text(style.toString().split('.').last),
-            selected: _selectedActionHubStyle == style,
-            onSelected: (selected) {
-              if (selected) {
-                setState(() {
-                  _selectedActionHubStyle = style;
-                });
-              }
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
-
+  
   List<Widget> _getAppBarActions(BuildContext context) {
-    List<Widget> actions = [
+    return [
       IconButton(
         icon: const Icon(Icons.edit),
         tooltip: 'Edit Issue',
@@ -278,57 +95,16 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               builder: (context) => AddEditHealthIssueScreen(healthIssue: _currentIssue),
             ),
           );
-          if (result == true || result == null) {
+          if (result == true || result == null) { // Refresh if edited or simply popped back
             _refreshIssueDetails();
           }
         },
       ),
     ];
-
-    if (_selectedActionHubStyle == ActionHubStyle.appBarMenu) {
-      actions.add(
-        PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'update') ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
-            if (value == 'upload') ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
-            if (value == 'book') ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
-            if (value == 'remind') ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
-          },
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(value: 'update', child: ListTile(leading: Icon(Icons.update), title: Text('Add Update'))),
-            const PopupMenuItem<String>(value: 'upload', child: ListTile(leading: Icon(Icons.upload_file_outlined), title: Text('Upload File'))),
-            const PopupMenuItem<String>(value: 'book', child: ListTile(leading: Icon(Icons.calendar_today), title: Text('Book Follow-Up'))),
-            const PopupMenuItem<String>(value: 'remind', child: ListTile(leading: Icon(Icons.alarm_add), title: Text('Add Reminder'))),
-          ],
-        ),
-      );
-    }
-    return actions;
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget actionHubWidget;
-    switch (_selectedActionHubStyle) {
-      case ActionHubStyle.compactRow:
-        actionHubWidget = _buildActionHubCompactRow(context);
-        break;
-      case ActionHubStyle.speedDial:
-        actionHubWidget = _buildActionHubSpeedDial(context);
-        break;
-      case ActionHubStyle.appBarMenu:
-        actionHubWidget = const Center(child: Text("Actions are in AppBar Menu (top right)"));
-        break;
-      case ActionHubStyle.bottomSheetButton:
-        actionHubWidget = _buildActionHubBottomSheetButton(context);
-        break;
-      case ActionHubStyle.segmentedBar:
-        actionHubWidget = _buildActionHubSegmentedBar(context);
-        break;
-      default:
-        actionHubWidget = _buildActionHubCompactRow(context);
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentIssue.issueName),
@@ -339,9 +115,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _buildSectionTitle('UI Style Switcher (Temporary)'),
-            _buildUIStyleSwitcher(context),
-            const Divider(height: 20, thickness: 1),
+            // Removed UI Style Switcher
             _buildSectionTitle('General Information'),
             _buildInfoCard([
               _buildInfoRow('Issue Name:', _currentIssue.issueName),
@@ -367,12 +141,13 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                         .map((file) => ListTile(
                               leading: const Icon(Icons.attach_file),
                               title: Text(file['fileName']!),
+                              // onTap: () { /* TODO: Open file */ },
                             ))
                         .toList(),
                   ),
             const SizedBox(height: 20),
             _buildSectionTitle('Action Hub'),
-            actionHubWidget, 
+            _buildActionHub(context), // Directly use the chosen action hub
             const SizedBox(height: 20),
             _buildSectionTitle('History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
@@ -418,6 +193,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                                           leading: const Icon(Icons.attach_file, size: 18),
                                           title: Text(file['fileName']!, style: const TextStyle(fontSize: 14)),
                                           dense: true,
+                                          // onTap: () { /* TODO: Open file */ },
                                         )),
                                   ],
                                 ),
@@ -433,7 +209,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           ],
         ),
       ),
-      floatingActionButton: _selectedActionHubStyle == ActionHubStyle.speedDial ? _buildSpeedDial() : null,
+      // Removed floatingActionButton as SpeedDial is no longer the selected option
     );
   }
 
