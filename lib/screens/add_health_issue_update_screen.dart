@@ -56,7 +56,7 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
       try {
         // The service method addHealthIssueUpdate needs healthIssueId and the update object.
         // It can internally handle associating the userId if needed when saving to Firestore.
-        await _healthIssueService.addHealthIssueUpdate(widget.healthIssue.id!, newUpdate, user.uid);
+        await _healthIssueService.addHealthIssueUpdate(widget.healthIssue.id!, newUpdate);
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Update added successfully!')),
