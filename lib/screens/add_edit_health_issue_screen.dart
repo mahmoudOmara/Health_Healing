@@ -80,63 +80,85 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   }
 
   Future<void> _saveForm() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // Ensure mandatory fields are set
-      if (_startDate == null || _severityLevel == null) {
+    if (!_formKey.currentState!.validate()) {
+      return; // If form is not valid, do not proceed
+    }
+    
+    // Ensure mandatory non-TextFormField fields are set
+    if (_startDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill all mandatory fields (Start Date, Severity).')),
+            const SnackBar(content: Text('Please select a Start Date.')),
         );
-        setState(() {
-          _isLoading = false;
-        });
         return;
-      }
-
-      final now = Timestamp.now();
-      HealthIssue issueToSave = HealthIssue(
-        id: widget.healthIssue?.id, // Keep id if editing
-        userId: '', // This will be set by the service based on current user
-        issueName: _issueNameController.text,
-        startDate: Timestamp.fromDate(_startDate!),
-        severityLevel: _severityLevel!,
-        symptoms: _symptomsController.text.isNotEmpty ? _symptomsController.text : null,
-        medications: _medicationsController.text.isNotEmpty ? _medicationsController.text : null,
-        doctorClinic: _doctorClinicController.text.isNotEmpty ? _doctorClinicController.text : null,
-        isRecurring: _isRecurring,
-        nextFollowUpDate: _nextFollowUpDate != null ? Timestamp.fromDate(_nextFollowUpDate!) : null,
-        status: widget.healthIssue?.status ?? 'Active', // Preserve status or default
-        createdAt: widget.healthIssue?.createdAt ?? now, // Preserve or set new
-        updatedAt: now, // Always update this
-        fileUploads: widget.healthIssue?.fileUploads ?? [], // Preserve existing files
-      );
-
-      try {
-        if (widget.healthIssue == null) {
-          // Add new issue
-          await _healthIssueService.addHealthIssue(issueToSave);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Health issue added successfully!')),
-          );
-        } else {
-          // Update existing issue
-          await _healthIssueService.updateHealthIssue(issueToSave);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Health issue updated successfully!')),
-          );
-        }
-        Navigator.of(context).pop(); // Go back after saving
-      } catch (e) {
+    }
+    if (_severityLevel == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save health issue: $e')),
+            const SnackBar(content: Text('Please select a Severity Level.')),
         );
-      } finally {
+        return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final now = Timestamp.now();
+    HealthIssue issueToSave = HealthIssue(
+      id: widget.healthIssue?.id, // Keep id if editing
+      userId: '', // This will be set by the service based on current user
+      issueName: _issueNameController.text,
+      startDate: Timestamp.fromDate(_startDate!),
+      severityLevel: _severityLevel!,
+      symptoms: _symptomsController.text.isNotEmpty ? _symptomsController.text : null,
+      medications: _medicationsController.text.isNotEmpty ? _medicationsController.text : null,
+      doctorClinic: _doctorClinicController.text.isNotEmpty ? _doctorClinicController.text : null,
+      isRecurring: _isRecurring,
+      nextFollowUpDate: _nextFollowUpDate != null ? Timestamp.fromDate(_nextFollowUpDate!) : null,
+      status: widget.healthIssue?.status ?? 'Active', // Preserve status or default
+      createdAt: widget.healthIssue?.createdAt ?? now, // Preserve or set new
+      updatedAt: now, // Always update this
+      fileUploads: widget.healthIssue?.fileUploads ?? [], // Preserve existing files
+    );
+
+    String? operationError;
+
+    try {
+      if (widget.healthIssue == null) {
+        // Add new issue
+        String? newIssueId = await _healthIssueService.addHealthIssue(issueToSave);
+        if (newIssueId != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Health issue added successfully!')),
+            );
+            Navigator.of(context).pop(); 
+          }
+        } else {
+          operationError = 'Failed to add health issue. Please try again.';
+        }
+      } else {
+        // Update existing issue
+        await _healthIssueService.updateHealthIssue(issueToSave);
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Health issue updated successfully!')),
+            );
+            Navigator.of(context).pop();
+        }
+      }
+    } catch (e) {
+      print("SaveForm Error: $e");
+      operationError = 'Failed to save health issue: ${e.toString()}';
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        if (operationError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(operationError)),
+            );
+        }
       }
     }
   }
