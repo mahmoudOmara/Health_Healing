@@ -4,7 +4,7 @@ import 'package:health_healing/models/health_issue_update.dart';
 import 'package:health_healing/services/health_issue_service.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:health_healing/screens/add_edit_health_issue_screen.dart'; // For editing
-// import 'package:health_healing/screens/add_health_issue_update_screen.dart'); // To be created
+import 'package:health_healing/screens/add_health_issue_update_screen.dart'; // For adding updates
 
 class HealthIssueDetailScreen extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -27,10 +27,14 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
 
   void _refreshIssueDetails() async {
     if (widget.healthIssue.id != null) {
-      final updatedIssueStream = _healthIssueService.getHealthIssues().map((issues) =>
-          issues.firstWhere((issue) => issue.id == widget.healthIssue.id,
-              orElse: () => _currentIssue));
-      final updatedIssue = await updatedIssueStream.first;
+      // Instead of fetching all issues, fetch just this one if possible, or refresh the stream.
+      // For simplicity, we'll re-fetch the current issue directly if your service supports it.
+      // Assuming getHealthIssueById exists or adapt as needed.
+      // If not, the existing stream for updates will handle timeline refresh.
+      // The main issue details might need a more direct refresh if they change outside of this screen's direct actions.
+      // For now, we rely on the fact that edits happen via AddEditHealthIssueScreen which should return and trigger refresh.
+      // And new updates will refresh the timeline stream.
+      final updatedIssue = await _healthIssueService.getHealthIssueStream(widget.healthIssue.id!).first;
       if (mounted) {
         setState(() {
           _currentIssue = updatedIssue;
@@ -39,23 +43,38 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     }
   }
 
+  void _navigateToAddUpdate() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddHealthIssueUpdateScreen(healthIssue: _currentIssue),
+      ),
+    );
+    if (result == true && mounted) {
+      // The stream for updates will refresh the timeline automatically.
+      // No explicit call to _refreshIssueDetails needed for timeline, but good for other potential changes.
+      _refreshIssueDetails(); 
+    }
+  }
+
   Widget _buildActionHub(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0), // Add some vertical padding
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildStyledCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: () {
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Update screen (To be implemented).')));
-          }),
+          _buildStyledCompactActionButton(context, icon: Icons.update, label: "Add Update", onPressed: _navigateToAddUpdate),
           _buildStyledCompactActionButton(context, icon: Icons.upload_file_outlined, label: "Upload File", onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload file for issue screen (To be implemented).')));
+              // TODO: Implement Upload File Screen Navigation
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload File screen (To be implemented).')));
           }),
           _buildStyledCompactActionButton(context, icon: Icons.calendar_today, label: "Book Follow-Up", onPressed: () {
+              // TODO: Implement Book Follow-Up Screen Navigation
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')));
           }),
           _buildStyledCompactActionButton(context, icon: Icons.alarm_add, label: "Add Reminder", onPressed: () {
+              // TODO: Implement Add Reminder Screen Navigation
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add Reminder screen (To be implemented).')));
           }),
         ],
@@ -66,10 +85,10 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   Widget _buildStyledCompactActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
     return Expanded(
       child: Card(
-        elevation: 2.0, // Add shadow
+        elevation: 2.0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0), // Rounded frame
-          side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5), width: 1), // Thin rounded frame
+          borderRadius: BorderRadius.circular(8.0),
+          side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.5), width: 1),
         ),
         child: InkWell(
           onTap: onPressed,
@@ -108,7 +127,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               builder: (context) => AddEditHealthIssueScreen(healthIssue: _currentIssue),
             ),
           );
-          if (result == true || result == null) {
+          if (result == true || result == null) { 
             _refreshIssueDetails();
           }
         },
@@ -144,10 +163,9 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               if (_currentIssue.nextFollowUpDate != null)
                 _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(_currentIssue.nextFollowUpDate!.toDate())),
             ]),
-            const SizedBox(height: 10), // Adjusted spacing
-            // Action Hub moved here, title removed
+            const SizedBox(height: 10),
             _buildActionHub(context),
-            const SizedBox(height: 10), // Adjusted spacing
+            const SizedBox(height: 10),
             _buildSectionTitle('Uploaded Files'),
             _currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty
                 ? const Text('No files uploaded for this issue yet.')
@@ -156,7 +174,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                         .map((file) => ListTile(
                               leading: const Icon(Icons.attach_file),
                               title: Text(file['fileName']!),
-                              // onTap: () { /* TODO: Open file */ },
                             ))
                         .toList(),
                   ),
@@ -205,7 +222,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                                           leading: const Icon(Icons.attach_file, size: 18),
                                           title: Text(file['fileName']!, style: const TextStyle(fontSize: 14)),
                                           dense: true,
-                                          // onTap: () { /* TODO: Open file */ },
                                         )),
                                   ],
                                 ),
