@@ -3,7 +3,7 @@ import 'package:health_healing/models/health_issue.dart';
 import 'package:health_healing/models/health_issue_update.dart';
 import 'package:health_healing/services/health_issue_service.dart';
 import 'package:intl/intl.dart'; // For date formatting
-// import 'package:health_healing/screens/add_edit_health_issue_screen.dart'; // For editing
+import 'package:health_healing/screens/add_edit_health_issue_screen.dart'; // For editing
 // import 'package:health_healing/screens/add_health_issue_update_screen.dart'; // To be created
 
 class HealthIssueDetailScreen extends StatefulWidget {
@@ -17,28 +17,86 @@ class HealthIssueDetailScreen extends StatefulWidget {
 
 class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   final HealthIssueService _healthIssueService = HealthIssueService();
+  late HealthIssue _currentIssue; // To hold the potentially updated issue
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIssue = widget.healthIssue;
+  }
+
+  void _refreshIssueDetails() async {
+    // This method is called after returning from the edit screen.
+    // The HomeScreen's StreamBuilder should handle updating the list.
+    // When navigating back to this detail screen for the same item,
+    // it should be rebuilt with the new widget.healthIssue from the updated list.
+    // However, if this specific instance of HealthIssueDetailScreen is still in the widget tree
+    // (e.g., if AddEditHealthIssueScreen did not replace it fully or if using complex navigation),
+    // _currentIssue might be stale. A robust solution involves a proper state management approach
+    // (Provider, Riverpod, BLoC) to share and update state across screens.
+    // For now, if AddEditHealthIssueScreen returns a value indicating an update, we can use it.
+    // Or, we can re-fetch the specific issue if its ID is available.
+    // Given the current structure, the simplest is to rely on the parent StreamBuilder in HomeScreen
+    // to provide the updated HealthIssue object when this screen is potentially rebuilt upon re-navigation.
+    // If the edit screen pops and this screen is directly revealed without re-navigation from home,
+    // we need a way to get the updated data.
+    // A simple (but not always ideal) way is to refetch if an ID is present.
+    if (widget.healthIssue.id != null) {
+        final updatedIssueStream = _healthIssueService.getHealthIssues().map((issues) => issues.firstWhere((issue) => issue.id == widget.healthIssue.id, orElse: () => _currentIssue));
+        final updatedIssue = await updatedIssueStream.first;
+        if (mounted) {
+            setState(() {
+                _currentIssue = updatedIssue;
+            });
+        }
+    }
+  }
+
+  Widget _buildActionCard(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10.0),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min, // Important for Wrap or GridView
+            children: [
+              Icon(icon, size: 30.0, color: Theme.of(context).primaryColor),
+              const SizedBox(height: 8.0),
+              Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleSmall),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.healthIssue.issueName),
+        title: Text(_currentIssue.issueName),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: 'Edit Issue',
-            onPressed: () {
-              // Navigate to AddEditHealthIssueScreen with the current issue
-              // Navigator.push(
-              //   context,
-              //   MaterialPageRoute(
-              //     builder: (context) => AddEditHealthIssueScreen(healthIssue: widget.healthIssue),
-              //   ),
-              // ).then((_) {
-              //   // Potentially refresh state if needed after edit, though StreamBuilder should handle it
-              //   // setState(() {}); 
-              // });
-              print("Edit button tapped for ${widget.healthIssue.issueName}"); // Placeholder
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddEditHealthIssueScreen(healthIssue: _currentIssue),
+                ),
+              );
+              // If the edit screen indicates a change (e.g. by returning true or the updated object)
+              // or simply by popping, we might want to refresh.
+              if (result == true || result == null) { // Assuming pop without specific result means potential change
+                _refreshIssueDetails();
+              }
             },
           ),
         ],
@@ -50,26 +108,27 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           children: <Widget>[
             _buildSectionTitle('General Information'),
             _buildInfoCard([
-              _buildInfoRow('Issue Name:', widget.healthIssue.issueName),
-              _buildInfoRow('Start Date:', DateFormat.yMd().format(widget.healthIssue.startDate.toDate())),
-              _buildInfoRow('Severity Level:', widget.healthIssue.severityLevel),
-              _buildInfoRow('Status:', widget.healthIssue.status),
-              if (widget.healthIssue.symptoms != null && widget.healthIssue.symptoms!.isNotEmpty)
-                _buildInfoRow('Symptoms:', widget.healthIssue.symptoms!),
-              if (widget.healthIssue.medications != null && widget.healthIssue.medications!.isNotEmpty)
-                _buildInfoRow('Medications:', widget.healthIssue.medications!),
-              if (widget.healthIssue.doctorClinic != null && widget.healthIssue.doctorClinic!.isNotEmpty)
-                _buildInfoRow('Doctor/Clinic:', widget.healthIssue.doctorClinic!),
-              _buildInfoRow('Recurring Issue:', widget.healthIssue.isRecurring ? 'Yes' : 'No'),
-              if (widget.healthIssue.nextFollowUpDate != null)
-                _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(widget.healthIssue.nextFollowUpDate!.toDate())),
+              _buildInfoRow('Issue Name:', _currentIssue.issueName),
+              _buildInfoRow('Start Date:', DateFormat.yMd().format(_currentIssue.startDate.toDate())),
+              _buildInfoRow('Severity Level:', _currentIssue.severityLevel),
+              _buildInfoRow('Status:', _currentIssue.status),
+              if (_currentIssue.symptoms != null && _currentIssue.symptoms!.isNotEmpty)
+                _buildInfoRow('Symptoms:', _currentIssue.symptoms!),
+              if (_currentIssue.medications != null && _currentIssue.medications!.isNotEmpty)
+                _buildInfoRow('Medications:', _currentIssue.medications!),
+              if (_currentIssue.doctorClinic != null && _currentIssue.doctorClinic!.isNotEmpty)
+                _buildInfoRow('Doctor/Clinic:', _currentIssue.doctorClinic!),
+              _buildInfoRow('Recurring Issue:', _currentIssue.isRecurring ? 'Yes' : 'No'),
+              if (_currentIssue.nextFollowUpDate != null)
+                _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(_currentIssue.nextFollowUpDate!.toDate())),
             ]),
             const SizedBox(height: 20),
             _buildSectionTitle('Uploaded Files'),
-            widget.healthIssue.fileUploads == null || widget.healthIssue.fileUploads!.isEmpty
+            // This section remains as is for now, as per user request focusing on Action Hub
+            _currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty
                 ? const Text('No files uploaded for this issue yet.')
                 : Column(
-                    children: widget.healthIssue.fileUploads!
+                    children: _currentIssue.fileUploads!
                         .map((file) => ListTile(
                               leading: const Icon(Icons.attach_file),
                               title: Text(file['fileName']!),
@@ -77,7 +136,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                             ))
                         .toList(),
                   ),
-            ElevatedButton.icon(
+             ElevatedButton.icon(
                 onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Upload file for issue screen (To be implemented).')),
@@ -85,47 +144,64 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                 },
                 icon: const Icon(Icons.upload_file),
                 label: const Text('Upload File to Issue'),
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 36)),
             ),
             const SizedBox(height: 20),
             _buildSectionTitle('Action Hub'),
-            Wrap(
-              spacing: 8.0, // gap between adjacent chips
-              runSpacing: 4.0, // gap between lines
+            GridView.count(
+              crossAxisCount: 2, // Display two cards per row
+              shrinkWrap: true, // Essential for GridView inside SingleChildScrollView
+              physics: const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
+              mainAxisSpacing: 10.0,
+              crossAxisSpacing: 10.0,
+              childAspectRatio: 1.2, // Adjust for desired card proportions (width/height)
               children: <Widget>[
-                ElevatedButton.icon(
-                    onPressed: () {
-                        // Navigator.push(context, MaterialPageRoute(builder: (context) => AddHealthIssueUpdateScreen(issueId: widget.healthIssue.id!)));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Add Update screen (To be implemented).')),
-                        );
-                    },
-                    icon: const Icon(Icons.update),
-                    label: const Text('Add Update'),
+                _buildActionCard(
+                  context,
+                  icon: Icons.update,
+                  label: 'Add Update',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Add Update screen (To be implemented).')),
+                    );
+                  },
                 ),
-                ElevatedButton.icon(
-                    onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')),
-                        );
-                    },
-                    icon: const Icon(Icons.calendar_today),
-                    label: const Text('Book Follow-Up'),
+                _buildActionCard(
+                  context,
+                  icon: Icons.upload_file_outlined, // Changed from ElevatedButton
+                  label: 'Upload File',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Upload file for issue screen (To be implemented).')),
+                    );
+                  },
                 ),
-                 ElevatedButton.icon(
-                    onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Add Reminder screen (To be implemented).')),
-                        );
-                    },
-                    icon: const Icon(Icons.alarm_add),
-                    label: const Text('Add Reminder'),
+                _buildActionCard(
+                  context,
+                  icon: Icons.calendar_today,
+                  label: 'Book Follow-Up',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Book Follow-Up screen (To be implemented).')),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  context,
+                  icon: Icons.alarm_add,
+                  label: 'Add Reminder',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Add Reminder screen (To be implemented).')),
+                    );
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 20),
             _buildSectionTitle('History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
-              stream: _healthIssueService.getHealthIssueUpdates(widget.healthIssue.id!),
+              stream: _healthIssueService.getHealthIssueUpdates(_currentIssue.id!),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -139,7 +215,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                 final updates = snapshot.data!;
                 return ListView.builder(
                   shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(), // To use within SingleChildScrollView
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: updates.length,
                   itemBuilder: (context, index) {
                     final update = updates[index];
