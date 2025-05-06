@@ -1,5 +1,4 @@
-import 
-import 
+import 'dart:io';
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_storage/firebase_storage.dart";
@@ -30,7 +29,7 @@ class HealthIssueService {
     try {
       // Create a mutable copy of the map to set/override userId
       Map<String, dynamic> issueData = issue.toFirestore();
-      issueData["userId"] = _currentUserId; // Ensure current user"s ID is set
+      issueData["userId"] = _currentUserId; // Ensure current user's ID is set
 
       DocumentReference docRef = await _healthIssuesCollection.add(issueData);
       return docRef.id;
@@ -81,7 +80,7 @@ class HealthIssueService {
         throw Exception("User not logged in");
     }
     try {
-      DocumentSnapshot docSnapshot = await _healthIssuesCollection.doc(issue.id).get();
+      DocumentSnapshot docSnapshot = await _healthIssuesCollection.doc(issue.id!).get();
       if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)["userId"] != _currentUserId) {
           throw Exception("User not authorized to update this issue or issue does not exist");
       }
@@ -90,7 +89,7 @@ class HealthIssueService {
       issueData["updatedAt"] = Timestamp.now();
       issueData["userId"] = _currentUserId; 
 
-      await _healthIssuesCollection.doc(issue.id).update(issueData);
+      await _healthIssuesCollection.doc(issue.id!).update(issueData);
     } catch (e) {
       print("Error updating health issue: $e");
       rethrow;
@@ -99,8 +98,8 @@ class HealthIssueService {
 
   // Add an update/log to a health issue
   Future<void> addHealthIssueUpdate(
-      String issueId, HealthIssueUpdate update, String userId) async { // Added userId parameter
-    if (userId.isEmpty) { // Check passed userId
+      String issueId, HealthIssueUpdate update, String userId) async { 
+    if (userId.isEmpty) { 
         throw Exception("User not logged in or userId not provided");
     }
     try {
@@ -109,7 +108,7 @@ class HealthIssueService {
           throw Exception("User not authorized to update this issue or issue does not exist");
       }
       Map<String, dynamic> updateData = update.toFirestore();
-      updateData["userId"] = userId; // Ensure userId is part of the update document for potential future queries/rules
+      updateData["userId"] = userId; 
 
       await _healthIssuesCollection
           .doc(issueId)
@@ -127,8 +126,6 @@ class HealthIssueService {
      if (_currentUserId == null) {
       return Stream.value([]);
     }
-    // Assuming issue_updates don"t need direct userId check if main issue is already verified for user
-    // Or, if issue_updates also store userId, you could add .where("userId", isEqualTo: _currentUserId)
     return _healthIssuesCollection
         .doc(issueId)
         .collection("issue_updates")
@@ -141,21 +138,25 @@ class HealthIssueService {
     });
   }
 
-  // Upload a file to Firebase Storage
-  Future<Map<String, String>?> uploadFile(File file, String path) async {
+  // Upload a file to Firebase Storage and return its name, URL, and description
+  Future<Map<String, String>?> uploadFileWithDescription(File file, String path, String description, String originalFileName) async {
     if (_currentUserId == null) {
       throw Exception("User not logged in");
     }
     try {
-      String fileName = file.path.split("/").last;
-      String fullPath = "user_uploads/$_currentUserId/$path/$fileName";
+      // Use the original file name for storage to maintain consistency
+      String fullPath = "user_uploads/$_currentUserId/$path/$originalFileName";
       Reference storageRef = _storage.ref().child(fullPath);
       UploadTask uploadTask = storageRef.putFile(file);
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
-      return {"fileName": fileName, "downloadURL": downloadURL};
+      return {
+        "fileName": originalFileName, 
+        "downloadURL": downloadURL,
+        "description": description
+      };
     } catch (e) {
-      print("Error uploading file: $e");
+      print("Error uploading file with description: $e");
       return null;
     }
   }
