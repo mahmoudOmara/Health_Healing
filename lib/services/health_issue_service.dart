@@ -87,8 +87,10 @@ class HealthIssueService {
 
       // Log follow-up date change
       if (issue.nextFollowUpDate != oldFollowUpDate) {
+        print("DEBUG: Attempting to log follow-up change. New: ${issue.nextFollowUpDate?.toDate().toIso8601String()}, Old: ${oldFollowUpDate?.toDate().toIso8601String()}");
         String logText;
         if (issue.nextFollowUpDate != null) {
+          // Using agreed format, ensure DateFormat is robust
           String formattedDate = DateFormat('MMM d, yyyy HH:mm').format(issue.nextFollowUpDate!.toDate());
           if (oldFollowUpDate == null) {
             logText = "Follow-up scheduled for: $formattedDate";
@@ -96,14 +98,21 @@ class HealthIssueService {
             logText = "Follow-up updated to: $formattedDate";
           }
         } else {
-          // This case means the follow-up was removed
           logText = "Follow-up cancelled"; 
         }
+        print("DEBUG: Follow-up log text: $logText");
         HealthIssueUpdate followUpLog = HealthIssueUpdate(
           updateText: logText,
           updateDate: Timestamp.now(),
         );
-        await addHealthIssueUpdate(issue.id!, followUpLog);
+        try {
+          await addHealthIssueUpdate(issue.id!, followUpLog);
+          print("DEBUG: Successfully logged follow-up change for issue ${issue.id!}");
+        } catch (e) {
+          print("DEBUG: ERROR explicitly logging follow-up change: $e");
+        }
+      } else {
+        print("DEBUG: No follow-up change detected to log. New: ${issue.nextFollowUpDate?.toDate().toIso8601String()}, Old: ${oldFollowUpDate?.toDate().toIso8601String()}");
       }
 
     } catch (e) {
@@ -122,14 +131,12 @@ class HealthIssueService {
         throw Exception("User not authorized to update this issue or issue does not exist");
       }
       Map<String, dynamic> updateData = update.toFirestore();
-      updateData["userId"] = _currentUserId; // Ensure update is associated with the user
+      updateData["userId"] = _currentUserId; 
 
       await _healthIssuesCollection
           .doc(issueId)
           .collection("issue_updates")
           .add(updateData);
-      // No need to update the main issue's updatedAt here, as addHealthIssueUpdate is often called *after* an update.
-      // The primary action (like updateHealthIssue or uploadFileWithDescription) should handle updating the main issue's updatedAt.
     } catch (e) {
       print("Error adding health issue update: $e");
       rethrow;
@@ -230,7 +237,6 @@ class HealthIssueService {
         "updatedAt": Timestamp.now(),
       });
       
-      // Log file deletion
       String logText = "File Deleted: ${fileData['fileName'] ?? 'Unknown file'}";
       HealthIssueUpdate deleteLogUpdate = HealthIssueUpdate(
         updateText: logText,
@@ -253,17 +259,13 @@ class HealthIssueService {
     }
   }
 
-  // Placeholder for reminder logging - to be implemented
   Future<void> addOrUpdateReminder(String issueId, String reminderDetails, {bool isUpdate = false}) async {
-    // Actual reminder saving logic would go here (e.g., to a subcollection or updating the main issue document)
-    // For now, we'll just log the action.
     String logText = isUpdate ? "Reminder updated: $reminderDetails" : "Reminder set: $reminderDetails";
     HealthIssueUpdate reminderLog = HealthIssueUpdate(
       updateText: logText,
       updateDate: Timestamp.now(),
     );
     await addHealthIssueUpdate(issueId, reminderLog);
-    // Also update the main issue's updatedAt timestamp
     await _healthIssuesCollection.doc(issueId).update({"updatedAt": Timestamp.now()});
   }
 
