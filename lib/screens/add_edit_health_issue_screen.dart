@@ -72,7 +72,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   }
 
   Future<void> _pickFiles() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.any);
     if (result != null) {
       setState(() {
         _pickedFiles.addAll(result.files);
@@ -89,25 +89,6 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
       _fileDescriptionControllers[index].dispose();
       _fileDescriptionControllers.removeAt(index);
     });
-  }
-
-  Future<void> _removeExistingFile(Map<String, String> fileData, int index) async {
-    // This method will only mark for removal locally if the issue is not yet saved with this file.
-    // For files already in Firestore, deletion should happen via HealthIssueDetailScreen or a similar mechanism
-    // after confirming the main issue update.
-    // For simplicity in this screen, if it's an existing file from Firestore, we might offer a different UX
-    // or delegate deletion to the detail screen to avoid complexity here.
-    // For now, let's assume this is for files *about to be uploaded* or managing a list for a *new* issue.
-    // If `widget.healthIssue` is not null and `fileData` came from `_existingFiles` that were part of `widget.healthIssue.fileUploads`,
-    // then actual deletion from storage and Firestore needs `_healthIssueService.deleteFileFromIssue`.
-    // This screen will focus on adding new files during create/edit.
-    // Deletion of already uploaded files is better handled on the detail screen for clarity.
-
-    // For this iteration, we will not implement deletion of *already existing* files from this screen.
-    // We will only allow removing files *newly added* in this edit session before saving.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('File removal for already uploaded files should be done from the detail screen.')),
-    );
   }
 
   Future<void> _pickDate(BuildContext context, {bool isStartDate = true}) async {
@@ -173,17 +154,15 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
       }
 
       if (issueId != null && _pickedFiles.isNotEmpty) {
-        // Upload newly picked files
         for (int i = 0; i < _pickedFiles.length; i++) {
           PlatformFile platformFile = _pickedFiles[i];
-          if (platformFile.path == null) continue; // Should not happen if picked correctly
+          if (platformFile.path == null) continue; 
           File file = File(platformFile.path!);
           String description = _fileDescriptionControllers[i].text.trim();
           String originalFileName = platformFile.name;
           try {
             await _healthIssueService.uploadFileWithDescription(file, issueId, description, originalFileName);
           } catch (e) {
-            // Collect errors for individual file uploads if needed, or show one generic message
             print("Error uploading file ${originalFileName}: $e");
             operationError = (operationError ?? "") + " Error uploading ${originalFileName}.";
           }
@@ -194,7 +173,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Health issue ${isNewIssue ? 'added' : 'updated'} successfully!')),
         );
-        Navigator.of(context).pop(true); // Pop with true to indicate success and refresh
+        Navigator.of(context).pop(true); 
       }
     } catch (e) {
       print("SaveForm Error: $e");
@@ -209,6 +188,12 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
     }
   }
   
+  bool _isImagePlatformFile(PlatformFile file) {
+    final extension = file.extension?.toLowerCase();
+    if (extension == null) return false;
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+  }
+
   IconData _getIconForFileType(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file_outlined;
     final extension = p.extension(fileName.toLowerCase());
@@ -310,7 +295,6 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
               const SizedBox(height: 20),
               Text('Attachments', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              // Display existing files (read-only in this iteration for simplicity)
               if (_existingFiles.isNotEmpty)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,7 +309,6 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                     const SizedBox(height: 10),
                   ],
                 ),
-              // Display newly picked files for upload
               if (_pickedFiles.isNotEmpty)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,6 +319,20 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _pickedFiles.length,
                       itemBuilder: (context, index) {
+                        final platformFile = _pickedFiles[index];
+                        Widget previewWidget;
+                        if (_isImagePlatformFile(platformFile) && platformFile.path != null) {
+                          previewWidget = SizedBox(
+                            width: 60, height: 60,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image.file(File(platformFile.path!), fit: BoxFit.cover)
+                            )
+                          );
+                        } else {
+                          previewWidget = Icon(_getIconForFileType(platformFile.name), size: 40);
+                        }
+
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
                           child: Padding(
@@ -344,10 +341,19 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(_getIconForFileType(_pickedFiles[index].name)),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: Text(_pickedFiles[index].name, overflow: TextOverflow.ellipsis)),
+                                    previewWidget,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(platformFile.name, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                          Text("Size: ${(platformFile.size / 1024).toStringAsFixed(2)} KB"),
+                                        ],
+                                      )
+                                    ),
                                     IconButton(
                                       icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                                       onPressed: () => _removePickedFile(index),
@@ -355,7 +361,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 8),
                                 TextFormField(
                                   controller: _fileDescriptionControllers[index],
                                   decoration: const InputDecoration(
