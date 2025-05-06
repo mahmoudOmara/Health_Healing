@@ -81,8 +81,6 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
 
       try {
         String filePath = 'health_issues/${widget.healthIssue.id}/uploads';
-        
-        // Ensure originalFileName is not null
         String originalFileName = _fileName ?? _selectedFile!.path.split('/').last;
 
         Map<String, String>? uploadResult = await _healthIssueService.uploadFileWithDescription(
@@ -92,16 +90,21 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
             originalFileName 
         );
 
-        if (uploadResult != null && mounted) {
-          // Ensure all expected keys are present in uploadResult
+        if (uploadResult == null) {
+          // Explicitly handle null result from service, though catch block would also get it.
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('File upload failed: Service did not return upload details.')),
+            );
+          }
+        } else if (mounted) {
           if (uploadResult.containsKey('fileName') && uploadResult.containsKey('downloadURL')) {
             List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
-            
             updatedFileUploads.add({
-              'fileId': DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID for the file entry
+              'fileId': DateTime.now().millisecondsSinceEpoch.toString(),
               'fileName': uploadResult['fileName']!,
               'downloadURL': uploadResult['downloadURL']!,
-              'description': uploadResult['description'] ?? _descriptionController.text.trim(), // Use description from result or controller
+              'description': uploadResult['description'] ?? _descriptionController.text.trim(),
             });
 
             HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads);
@@ -110,13 +113,13 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('File uploaded successfully!')),
             );
-            Navigator.pop(context, true); // Return true to indicate success
+            Navigator.pop(context, true);
           } else {
-             throw Exception('File upload result is missing required keys (fileName or downloadURL).');
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('File upload failed: Result missing required keys.')),
+            );
           }
-        } else if (mounted) {
-          throw Exception('File upload failed, result was null or component unmounted.');
-        }
+        } 
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
