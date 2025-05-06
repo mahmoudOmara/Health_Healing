@@ -753,9 +753,29 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
   final _formKey = GlobalKey<FormState>();
   final _updateTextController = TextEditingController();
   bool _isLoading = false;
+  bool _isFormValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTextController.addListener(_validateForm);
+  }
+
+  @override
+  void dispose() {
+    _updateTextController.removeListener(_validateForm);
+    _updateTextController.dispose();
+    super.dispose();
+  }
+
+  void _validateForm() {
+    setState(() {
+      _isFormValid = _updateTextController.text.trim().isNotEmpty;
+    });
+  }
 
   Future<void> _submitUpdate() async {
-    if (_formKey.currentState!.validate()) {
+    if (_formKey.currentState!.validate() && _isFormValid) {
       setState(() => _isLoading = true);
       try {
         final update = HealthIssueUpdate(
@@ -813,7 +833,7 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 textStyle: const TextStyle(fontSize: 16.0),
               ),
-              onPressed: _isLoading ? null : _submitUpdate,
+              onPressed: _isLoading || !_isFormValid ? null : _submitUpdate,
             ),
             if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
             const SizedBox(height: 16.0), // Added padding at the bottom
@@ -844,6 +864,13 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
   File? _selectedFile;
   String? _selectedFileName;
   bool _isLoading = false;
+  bool _isFileSelected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // No listener needed for _descriptionController as it's optional
+  }
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
@@ -851,14 +878,16 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
       setState(() {
         _selectedFile = File(result.files.single.path!);
         _selectedFileName = result.files.single.name;
+        _isFileSelected = true;
       });
     } else {
-      // User canceled the picker
+      // User canceled the picker or no path available
+      // setState(() { _isFileSelected = false; }); // Not strictly needed if button relies on _selectedFile != null
     }
   }
 
   Future<void> _uploadAndSaveFile() async {
-    if (_selectedFile == null) {
+    if (_selectedFile == null) { // This check is redundant if button is disabled, but good for safety
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select a file first.")),
       );
@@ -1005,26 +1034,53 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
+  bool _isFormValid = false;
+
+  // Store initial values for edit comparison
+  DateTime? _initialDate;
+  TimeOfDay? _initialTime;
 
   @override
   void initState() {
     super.initState();
     if (widget.healthIssue.nextFollowUpDate != null) {
-      _selectedDate = widget.healthIssue.nextFollowUpDate!.toDate();
-      _selectedTime = TimeOfDay.fromDateTime(_selectedDate!);
+      _initialDate = widget.healthIssue.nextFollowUpDate!.toDate();
+      _initialTime = TimeOfDay.fromDateTime(_initialDate!);
+      _selectedDate = _initialDate;
+      _selectedTime = _initialTime;
     }
+    _validateForm(); // Initial validation
+  }
+
+  void _validateForm() {
+    bool isEditing = widget.healthIssue.nextFollowUpDate != null;
+    bool hasChanged = false;
+    if (isEditing) {
+      if (_selectedDate != _initialDate || _selectedTime != _initialTime) {
+        hasChanged = true;
+      }
+    }
+
+    setState(() {
+      if (isEditing) {
+        _isFormValid = hasChanged && _selectedDate != null; // Must have a date and must have changed
+      } else {
+        _isFormValid = _selectedDate != null; // For new, only date is mandatory
+      }
+    });
   }
 
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)), // Allow past dates for logging old followups
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
-    if (pickedDate != null && pickedDate != _selectedDate) {
+    if (pickedDate != null) { // No need to check if pickedDate != _selectedDate here, _validateForm handles it
       setState(() {
         _selectedDate = pickedDate;
+        _validateForm();
       });
     }
   }
@@ -1034,22 +1090,17 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    if (pickedTime != null && pickedTime != _selectedTime) {
+    if (pickedTime != null) { // No need to check if pickedTime != _selectedTime here, _validateForm handles it
       setState(() {
         _selectedTime = pickedTime;
+        _validateForm();
       });
     }
   }
 
   Future<void> _saveFollowUp() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select a follow-up date.")),
-        );
-        return;
-      }
-
+    if (_formKey.currentState!.validate() && _isFormValid) {
+      // _selectedDate null check is already part of _isFormValid logic
       setState(() => _isLoading = true);
       try {
         DateTime finalDateTime = _selectedDate!;
@@ -1096,7 +1147,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
               onPressed: () => _pickDate(context),
             ),
             const SizedBox(height: 12.0),
-            Text("Selected Time: ${_selectedTime == null ? 'Not set' : _selectedTime!.format(context)}"),
+            Text("Selected Time: ${_selectedTime == null ? 'Not set (optional)' : _selectedTime!.format(context)}"),
             ElevatedButton.icon(
               icon: const Icon(Icons.access_time_outlined),
               label: const Text("Select Time"),
@@ -1110,7 +1161,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 textStyle: const TextStyle(fontSize: 16.0),
               ),
-              onPressed: _isLoading ? null : _saveFollowUp,
+              onPressed: _isLoading || !_isFormValid ? null : _saveFollowUp,
             ),
             if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
             const SizedBox(height: 16.0),
@@ -1142,6 +1193,26 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
+  bool _isFormValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reminderTextController.addListener(_validateForm);
+  }
+
+  @override
+  void dispose() {
+    _reminderTextController.removeListener(_validateForm);
+    _reminderTextController.dispose();
+    super.dispose();
+  }
+
+  void _validateForm() {
+    setState(() {
+      _isFormValid = _reminderTextController.text.trim().isNotEmpty;
+    });
+  }
 
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -1153,6 +1224,7 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
     if (pickedDate != null && pickedDate != _selectedDate) {
       setState(() {
         _selectedDate = pickedDate;
+        // No need to call _validateForm() here as date/time are optional for reminder button enablement
       });
     }
   }
@@ -1165,18 +1237,14 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
     if (pickedTime != null && pickedTime != _selectedTime) {
       setState(() {
         _selectedTime = pickedTime;
+        // No need to call _validateForm() here as date/time are optional for reminder button enablement
       });
     }
   }
 
   Future<void> _saveReminder() async {
-    if (_formKey.currentState!.validate()) {
-      if (_reminderTextController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please enter reminder details.")),
-        );
-        return;
-      }
+    if (_formKey.currentState!.validate() && _isFormValid) {
+      // _reminderTextController empty check is already part of _isFormValid logic
       setState(() => _isLoading = true);
       try {
         String reminderDetails = _reminderTextController.text.trim();
@@ -1187,13 +1255,12 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
             dateTimeString += " at ${_selectedTime!.format(context)}";
           }
         }
-        if (dateTimeString.isNotEmpty) {
-          reminderDetails += " for $dateTimeString";
-        }
+        // The actual reminder text for Firestore is now just the controller's text.
+        // The date/time are for user display and potential future notification features, not part of the saved string for logging.
 
         await widget.healthIssueService.addOrUpdateReminder(
           widget.healthIssue.id!,
-          reminderDetails, 
+          _reminderTextController.text.trim(), // Log only the core reminder text
         );
         widget.onReminderAdded();
       } catch (e) {
@@ -1258,7 +1325,7 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 textStyle: const TextStyle(fontSize: 16.0),
               ),
-              onPressed: _isLoading ? null : _saveReminder,
+              onPressed: _isLoading || !_isFormValid ? null : _saveReminder,
             ),
             if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
             const SizedBox(height: 16.0),
