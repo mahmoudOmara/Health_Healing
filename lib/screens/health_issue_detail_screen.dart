@@ -283,7 +283,8 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                         .toList(),
                   ),
             const SizedBox(height: 20),
-            _buildSectionTitle('History Timeline'),line'),
+            _buildSectionTitle(
+                'History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
               stream: _healthIssueService.getHealthIssueUpdates(_currentIssue.id!),
               builder: (context, snapshot) {
