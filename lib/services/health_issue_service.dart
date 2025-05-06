@@ -139,13 +139,10 @@ class HealthIssueService {
       String? mimeType = mime(p.basename(file.path));
       final metadata = SettableMetadata(contentType: mimeType ?? "application/octet-stream");
 
-      // UploadTask uploadTask = storageRef.putFile(file, metadata);
-      UploadTask uploadTask = storageRef.putFile(file); // Temporarily removed metadata for testing
+      UploadTask uploadTask = storageRef.putFile(file, metadata);
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
       
-      // Temporarily commented out Firestore update for testing
-      /*
       Map<String, String> fileMetadata = {
         "fileId": storageRef.name,
         "fileName": originalFileName,
@@ -162,10 +159,6 @@ class HealthIssueService {
       });
 
       return fileMetadata;
-      */
-      // For testing, just return a basic map or even just the URL if successful
-      print("File uploaded to Storage, URL: $downloadURL");
-      return {"downloadURL": downloadURL, "fileName": originalFileName, "fileId": storageRef.name}; // Return minimal data for now
     } catch (e) {
       print("Error uploading file with description to Firebase Storage: $e");
       if (e is FirebaseException) {
