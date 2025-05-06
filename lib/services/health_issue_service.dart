@@ -27,9 +27,11 @@ class HealthIssueService {
       throw Exception("User not logged in");
     }
     try {
-      DocumentReference docRef = await _healthIssuesCollection.add(issue
-          .toFirestore()
-          .map((key, value) => key == 'userId' ? _currentUserId : value));
+      // Create a mutable copy of the map to set/override userId
+      Map<String, dynamic> issueData = issue.toFirestore();
+      issueData['userId'] = _currentUserId; // Ensure current user's ID is set
+
+      DocumentReference docRef = await _healthIssuesCollection.add(issueData);
       return docRef.id;
     } catch (e) {
       print("Error adding health issue: $e");
@@ -58,13 +60,22 @@ class HealthIssueService {
     if (issue.id == null) {
       throw Exception("Issue ID cannot be null for update");
     }
-    if (_currentUserId == null || issue.userId != _currentUserId) {
-        throw Exception("User not authorized to update this issue or not logged in");
+    if (_currentUserId == null ) { // Removed issue.userId check as it might not be populated from client if not careful
+        throw Exception("User not logged in");
     }
     try {
-      // Ensure updatedAt is set
-      issue.updatedAt = Timestamp.now();
-      await _healthIssuesCollection.doc(issue.id).update(issue.toFirestore());
+      // Fetch the document first to ensure it belongs to the user
+      DocumentSnapshot docSnapshot = await _healthIssuesCollection.doc(issue.id).get();
+      if (!docSnapshot.exists || (docSnapshot.data() as Map<String, dynamic>)['userId'] != _currentUserId) {
+          throw Exception("User not authorized to update this issue or issue does not exist");
+      }
+
+      // Ensure updatedAt is set and userId is correct
+      Map<String, dynamic> issueData = issue.toFirestore();
+      issueData['updatedAt'] = Timestamp.now();
+      issueData['userId'] = _currentUserId; // Re-affirm userId for security
+
+      await _healthIssuesCollection.doc(issue.id).update(issueData);
     } catch (e) {
       print("Error updating health issue: $e");
       rethrow;
@@ -101,9 +112,6 @@ class HealthIssueService {
      if (_currentUserId == null) {
       return Stream.value([]);
     }
-    // We might want to add a security check here later if needed, 
-    // but typically if the user has access to the issueId, they can see updates.
-    // For now, ensure the stream is tied to a valid issueId.
     return _healthIssuesCollection
         .doc(issueId)
         .collection('issue_updates')
@@ -123,7 +131,8 @@ class HealthIssueService {
     }
     try {
       String fileName = file.path.split('/').last;
-      Reference storageRef = _storage.ref().child('$path/$fileName');
+      String fullPath = 'user_uploads/$_currentUserId/$path/$fileName'; // User-specific path
+      Reference storageRef = _storage.ref().child(fullPath);
       UploadTask uploadTask = storageRef.putFile(file);
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
