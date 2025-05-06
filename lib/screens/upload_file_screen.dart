@@ -37,7 +37,6 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
           _fileName = result.files.single.name;
         });
       } else {
-        // User canceled the picker
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No file selected.')),
@@ -55,9 +54,11 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
 
   Future<void> _submitUpload() async {
     if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file to upload.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a file to upload.')),
+        );
+      }
       return;
     }
     if (_formKey.currentState!.validate()) {
@@ -79,37 +80,42 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
       }
 
       try {
-        // Use a unique path for each issue's files
         String filePath = 'health_issues/${widget.healthIssue.id}/uploads';
+        
+        // Ensure originalFileName is not null
+        String originalFileName = _fileName ?? _selectedFile!.path.split('/').last;
+
         Map<String, String>? uploadResult = await _healthIssueService.uploadFileWithDescription(
             _selectedFile!,
             filePath,
             _descriptionController.text.trim(),
-            _fileName ?? _selectedFile!.path.split('/').last // Use picked file name or derive from path
+            originalFileName 
         );
 
-        if (uploadResult != null) {
-          // Update the health issue document with the new file information
-          List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
-          updatedFileUploads.add({
-            'fileName': uploadResult['fileName']!,
-            'downloadURL': uploadResult['downloadURL']!,
-            'description': _descriptionController.text.trim(),
-            // Add a unique ID for the file entry for easier deletion later
-            'fileId': DateTime.now().millisecondsSinceEpoch.toString() 
-          });
+        if (uploadResult != null && mounted) {
+          // Ensure all expected keys are present in uploadResult
+          if (uploadResult.containsKey('fileName') && uploadResult.containsKey('downloadURL')) {
+            List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
+            
+            updatedFileUploads.add({
+              'fileId': DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID for the file entry
+              'fileName': uploadResult['fileName']!,
+              'downloadURL': uploadResult['downloadURL']!,
+              'description': uploadResult['description'] ?? _descriptionController.text.trim(), // Use description from result or controller
+            });
 
-          HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads);
-          await _healthIssueService.updateHealthIssue(issueToUpdate);
+            HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads);
+            await _healthIssueService.updateHealthIssue(issueToUpdate);
 
-          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('File uploaded successfully!')),
             );
             Navigator.pop(context, true); // Return true to indicate success
+          } else {
+             throw Exception('File upload result is missing required keys (fileName or downloadURL).');
           }
-        } else {
-          throw Exception('File upload failed, result was null.');
+        } else if (mounted) {
+          throw Exception('File upload failed, result was null or component unmounted.');
         }
       } catch (e) {
         if (mounted) {
@@ -159,7 +165,6 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
-                // No validator, as it's optional
               ),
               const SizedBox(height: 24.0),
               _isLoading
