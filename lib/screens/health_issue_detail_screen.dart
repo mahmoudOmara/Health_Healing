@@ -452,7 +452,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               if (_currentIssue.medications != null && _currentIssue.medications!.isNotEmpty)
                 _buildInfoRow('Medications:', _currentIssue.medications!),
               if (_currentIssue.doctorClinic != null && _currentIssue.doctorClinic!.isNotEmpty)
-                _buildInfoRow('Doctor/Clinic:', _currentIssue.doctorClinic!),
+                _buildInfoRow("Doctor/Clinic:", _currentIssue.doctorClinic!),
               _buildInfoRow('Recurring Issue:', _currentIssue.isRecurring ? 'Yes' : 'No'),
               if (_currentIssue.nextFollowUpDate != null)
                 _buildInfoRow('Next Follow-Up:', DateFormat.yMd().format(_currentIssue.nextFollowUpDate!.toDate())),
