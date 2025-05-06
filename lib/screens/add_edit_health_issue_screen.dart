@@ -194,6 +194,12 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
     return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
   }
 
+  bool _isImageFileName(String? fileName) {
+    if (fileName == null) return false;
+    final extension = p.extension(fileName.toLowerCase());
+    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(extension);
+  }
+
   IconData _getIconForFileType(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file_outlined;
     final extension = p.extension(fileName.toLowerCase());
@@ -300,12 +306,63 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Current files:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ..._existingFiles.map((file) => ListTile(
-                          leading: Icon(_getIconForFileType(file['fileName'])),
-                          title: Text(file['fileName'] ?? "Unknown file"),
-                          subtitle: Text(file['description'] ?? "No description"),
-                          dense: true,
-                        )).toList(),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _existingFiles.length,
+                      itemBuilder: (context, index) {
+                        final fileData = _existingFiles[index];
+                        final String? fileName = fileData['fileName'];
+                        final String? downloadURL = fileData['downloadURL'];
+                        final String? description = fileData['description'];
+                        final bool isImage = _isImageFileName(fileName) && downloadURL != null;
+
+                        Widget previewWidget;
+                        if (isImage) {
+                          previewWidget = SizedBox(
+                            width: 60, height: 60,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8.0),
+                              child: Image.network(
+                                downloadURL!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Icon(_getIconForFileType(fileName), size: 40),
+                                loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null));
+                                },
+                              )
+                            )
+                          );
+                        } else {
+                          previewWidget = Icon(_getIconForFileType(fileName), size: 40);
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                previewWidget,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(fileName ?? "Unknown File", style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                      const SizedBox(height: 4),
+                                      Text(description ?? "No description", style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 10),
                   ],
                 ),
