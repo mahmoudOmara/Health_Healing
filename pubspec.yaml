@@ -47,6 +47,7 @@ dependencies:
   firebase_messaging: ^15.2.5
   flutter_local_notifications: ^19.1.0
   cloud_functions: ^5.5.0
+  flutter_speed_dial: ^7.0.0 # Added for Action Hub UI options
 
 dev_dependencies:
   flutter_test:
@@ -100,3 +101,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
