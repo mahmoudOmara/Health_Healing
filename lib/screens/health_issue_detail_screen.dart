@@ -483,8 +483,8 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text("General Information", style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 10.0),
+                      // Text("General Information", style: Theme.of(context).textTheme.titleLarge), // Removed this line
+                      // const SizedBox(height: 10.0), // Adjusted or removed SizedBox if it was only for the title
                       _buildDetailRow("Status:", _currentIssue.status),
                       _buildDetailRow("Start Date:", DateFormat.yMMMd().format(_currentIssue.startDate.toDate())),
                       _buildDetailRow("Severity:", _currentIssue.severityLevel),
