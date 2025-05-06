@@ -577,7 +577,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                   tooltip: "Edit Description",
                   onPressed: () => _showEditDescriptionDialog(context, fileData),
                 ),
-                if (_isDeletingFile && _currentIssue.fileUploads![index]['fileId'] == fileData['fileId']) // Basic check, might need a more robust way to identify the deleting item
+                if (_isDeletingFile && _currentIssue.fileUploads![index]['fileId'] == fileData['fileId']) 
                     const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.0))
                 else
                     IconButton(
@@ -657,17 +657,66 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           itemCount: updates.length,
           itemBuilder: (context, index) {
             final update = updates[index];
-            return Card(
-              elevation: 1.0,
-              margin: const EdgeInsets.symmetric(vertical: 4.0),
-              child: ListTile(
-                leading: const Icon(Icons.history_edu_outlined), // Generic history icon for now
-                title: Text(update.updateText, style: Theme.of(context).textTheme.bodyMedium),
-                subtitle: Text(
-                  DateFormat.yMMMd().add_jm().format(update.updateDate.toDate()),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                // Potentially add more details or actions here if needed in the future
+            final bool isFirst = index == 0;
+            final bool isLast = index == updates.length - 1;
+
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(
+                    width: 40.0, // Width for the timeline line and node
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Expanded(
+                          child: Container(
+                            width: 2.0,
+                            color: isFirst ? Colors.transparent : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                          ),
+                        ),
+                        Container(
+                          width: 12.0,
+                          height: 12.0,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            width: 2.0,
+                            color: isLast ? Colors.transparent : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                      child: Card(
+                        elevation: 1.0,
+                        margin: const EdgeInsets.symmetric(vertical: 4.0), // Keep some vertical margin for the card itself
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min, // Important for Column inside IntrinsicHeight
+                            children: <Widget>[
+                              Text(update.updateText, style: Theme.of(context).textTheme.bodyMedium),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                DateFormat.yMMMd().add_jm().format(update.updateDate.toDate()),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -1077,9 +1126,6 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
 
-  // In a real app, you'd load existing reminder data if editing
-  // For now, this is for adding a new reminder
-
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -1128,11 +1174,9 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
           reminderDetails += " for $dateTimeString";
         }
 
-        // Call the service to add/update reminder and log it
         await widget.healthIssueService.addOrUpdateReminder(
           widget.healthIssue.id!,
-          reminderDetails, // This string will be used for the log
-          // isUpdate: false, // Assuming this is for adding new for now, would need logic for updates
+          reminderDetails, 
         );
         widget.onReminderAdded();
       } catch (e) {
@@ -1207,5 +1251,4 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
     );
   }
 }
-
 
