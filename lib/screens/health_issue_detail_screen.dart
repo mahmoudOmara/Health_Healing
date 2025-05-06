@@ -8,9 +8,6 @@ import 'package:health_healing/screens/add_edit_health_issue_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart'; // For file picking
-// import 'package:health_healing/screens/upload_file_screen.dart'; // No longer needed
-import 'package:health_healing/screens/book_follow_up_screen.dart'; 
-import 'package:health_healing/screens/add_reminder_screen.dart'; 
 import 'package:path/path.dart' as p; // For getting file extension
 
 class HealthIssueDetailScreen extends StatefulWidget {
@@ -98,33 +95,137 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     );
   }
 
-  void _navigateToBookFollowUpScreen() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BookFollowUpScreen(healthIssue: _currentIssue),
+  void _showBookFollowUpBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
       ),
+      builder: (BuildContext bottomSheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
+            left: 16.0,
+            right: 16.0,
+            top: 20.0,
+          ),
+          child: _BookFollowUpBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onFollowUpBooked: () {
+            _refreshIssueDetails(); // Or a more specific refresh if needed
+             ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Follow-up details noted.')),
+            );
+          }),
+        );
+      },
     );
-    if (result == true && mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Follow-up details noted.')),
-      );
-    }
   }
 
-  void _navigateToAddReminderScreen() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddReminderScreen(healthIssue: _currentIssue),
+  void _showAddReminderBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
       ),
+      builder: (BuildContext bottomSheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
+            left: 16.0,
+            right: 16.0,
+            top: 20.0,
+          ),
+          child: _AddReminderBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onReminderAdded: () {
+            _refreshIssueDetails(); // Or a more specific refresh if needed
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reminder details noted.')),
+            );
+          }),
+        );
+      },
     );
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder details noted.')),
-      );
-    }
   }
+
+  void _showEditDescriptionDialog(BuildContext parentContext, Map<String, String> fileData) {
+    final TextEditingController descriptionController = TextEditingController(text: fileData['description']);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: parentContext,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit File Description'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                hintText: 'Enter file description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              // validator: (value) { // Optional: Add validation if needed
+              //   if (value == null || value.trim().isEmpty) {
+              //     return 'Description cannot be empty.';
+              //   }
+              //   return null;
+              // },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Save'),
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final newDescription = descriptionController.text.trim();
+                  // Update the file description in _currentIssue.fileUploads
+                  // And then update the health issue in Firestore
+                  List<Map<String, String>> updatedFileUploads = List.from(_currentIssue.fileUploads ?? []);
+                  int fileIndex = updatedFileUploads.indexWhere((f) => f['fileId'] == fileData['fileId']);
+
+                  if (fileIndex != -1) {
+                    updatedFileUploads[fileIndex]['description'] = newDescription;
+                    HealthIssue issueToUpdate = _currentIssue.copyWith(fileUploads: updatedFileUploads, updatedAt: Timestamp.now());
+                    try {
+                      await _healthIssueService.updateHealthIssue(issueToUpdate);
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          const SnackBar(content: Text('Description updated successfully!')),
+                        );
+                        _refreshIssueDetails();
+                        Navigator.of(dialogContext).pop();
+                      }
+                    } catch (e) {
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(content: Text('Failed to update description: ${e.toString()}')),
+                        );
+                      }
+                    }
+                  } else {
+                     if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          const SnackBar(content: Text('Error: Could not find file to update.')),
+                        );
+                      }
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Widget _buildActionHub(BuildContext context) {
     String formatButtonLabel(String label) {
@@ -149,9 +250,9 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           const SizedBox(width: 5.0),
           _buildStyledCompactActionButton(context, icon: Icons.upload_file_outlined, label: formatButtonLabel("Upload File"), onPressed: _showUploadFileBottomSheet),
           const SizedBox(width: 5.0),
-          _buildStyledCompactActionButton(context, icon: Icons.calendar_today, label: formatButtonLabel("Book Follow-Up"), onPressed: _navigateToBookFollowUpScreen),
+          _buildStyledCompactActionButton(context, icon: Icons.calendar_today, label: formatButtonLabel("Book Follow-Up"), onPressed: _showBookFollowUpBottomSheet),
           const SizedBox(width: 5.0),
-          _buildStyledCompactActionButton(context, icon: Icons.alarm_add, label: formatButtonLabel("Add Reminder"), onPressed: _navigateToAddReminderScreen),
+          _buildStyledCompactActionButton(context, icon: Icons.alarm_add, label: formatButtonLabel("Add Reminder"), onPressed: _showAddReminderBottomSheet),
         ],
       ),
     );
@@ -562,7 +663,6 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
       }
       return;
     }
-    // Description is optional, so no validation needed for _formKey unless other fields are added
 
     setState(() {
       _isLoading = true;
@@ -582,7 +682,7 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
     }
 
     try {
-      String filePathInStorage = 'health_issues/${widget.healthIssue.id}/uploads';
+      String filePathInStorage = 'user_uploads/${user.uid}/health_issues/${widget.healthIssue.id}/${_originalFileName ?? DateTime.now().millisecondsSinceEpoch.toString() + p.extension(_selectedFile!.path)}';
       
       Map<String, String>? uploadResult = await widget.healthIssueService.uploadFileWithDescription(
           _selectedFile!,
@@ -601,13 +701,14 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
          if (uploadResult.containsKey('fileName') && uploadResult.containsKey('downloadURL')) {
             List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
             updatedFileUploads.add({
-              'fileId": DateTime.now().millisecondsSinceEpoch.toString(), // Simple unique ID
-              'fileName': uploadResult['fileName']!, // Store original file name from service
+              'fileId': DateTime.now().millisecondsSinceEpoch.toString(), 
+              'fileName': uploadResult['fileName']!, 
               'downloadURL': uploadResult['downloadURL']!,
-              'description': _descriptionController.text.trim(), // Use controller value
+              'description': _descriptionController.text.trim(), 
+              'uploadedAt': Timestamp.now().toDate().toIso8601String(),
             });
 
-            HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads);
+            HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads, updatedAt: Timestamp.now());
             await widget.healthIssueService.updateHealthIssue(issueToUpdate);
 
             ScaffoldMessenger.of(context).showSnackBar(
@@ -639,22 +740,17 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
   @override
   Widget build(BuildContext context) {
     return Form(
-      key: _formKey, // Still useful if more validators are added
+      key: _formKey, 
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          ElevatedButton.icon(
-            icon: const Icon(Icons.attach_file),
-            label: const Text('Pick File'),
-            onPressed: _pickFile,
-          ),
           if (_selectedFile != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: _isImageFile(_selectedFile!.path)
                   ? Image.file(_selectedFile!, height: 100, fit: BoxFit.cover)
                   // Display a generic icon for non-image files
-                  Padding(
+                  : Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Icon(
                       Icons.insert_drive_file_outlined,
@@ -663,6 +759,11 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
                     ),
                   )
             ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.attach_file),
+            label: const Text('Pick File'),
+            onPressed: _pickFile,
+          ),
           const SizedBox(height: 16.0),
           TextFormField(
             controller: _descriptionController,
@@ -684,19 +785,12 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                   ),
                 ),
-          const SizedBox(height: 16.0), // Bottom padding
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
   }
 }
-
-
-import 'package:flutter/material.dart';
-import 'package:health_healing/models/health_issue.dart';
-import 'package:health_healing/services/health_issue_service.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class _BookFollowUpBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -727,7 +821,6 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
       _selectedDate = widget.healthIssue.nextFollowUpDate!.toDate();
       _selectedTime = TimeOfDay.fromDateTime(_selectedDate!);
     }
-    // TODO: If a reason was previously stored, populate _reasonController.text
   }
 
   @override
@@ -791,6 +884,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
 
       HealthIssue updatedIssue = widget.healthIssue.copyWith(
         nextFollowUpDate: Timestamp.fromDate(finalDateTime),
+        updatedAt: Timestamp.now(),
         // TODO: Add reason to a new field in HealthIssue model if needed for Milestone 4
         // followUpReason: _reasonController.text.trim(), 
       );
@@ -798,9 +892,9 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
       try {
         await widget.healthIssueService.updateHealthIssue(updatedIssue);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Follow-up booked successfully!')),
-          );
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   const SnackBar(content: Text('Follow-up booked successfully!')),
+          // );
           Navigator.pop(context);
           widget.onFollowUpBooked();
         }
@@ -883,19 +977,12 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
                     ),
                   ),
                 ),
-          const SizedBox(height: 16.0), // Bottom padding
+          const SizedBox(height: 24.0), // Bottom padding
         ],
       ),
     );
   }
 }
-
-
-import 'package:flutter/material.dart';
-import 'package:health_healing/models/health_issue.dart';
-import 'package:health_healing/services/health_issue_service.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class _AddReminderBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -979,7 +1066,7 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
         );
         return;
       }
-      if (_isRepeated && _selectedEndDate == null) {
+      if (_isRepeated && _selectedEndDate == null && _selectedRepetitionType != 'Daily') { // End date optional for daily
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select an end date for the repeated reminder.')),
         );
@@ -996,9 +1083,8 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
         _isLoading = true;
       });
 
-      // Placeholder for saving reminder data. 
-      // In Milestone 5, this will involve creating a proper Reminder model and service.
       Map<String, dynamic> reminderData = {
+        'reminderId': DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID
         'type': _selectedReminderType,
         'isRepeated': _isRepeated,
         'repetitionType': _isRepeated ? _selectedRepetitionType : null,
@@ -1007,45 +1093,26 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
         'endDate': _isRepeated && _selectedEndDate != null ? Timestamp.fromDate(_selectedEndDate!) : null,
         'notes': _reminderNotesController.text.trim(),
         'createdAt': Timestamp.now(),
+        'isActive': true, // To control if reminder is active
       };
 
-      // For now, we'll just show a success message and call the callback.
       // In a real scenario, you'd save this to Firestore, likely in a subcollection of the health issue.
-      print('Reminder Data: $reminderData'); 
+      // For now, we'll add it to the HealthIssue object if a field exists, or just log it.
+      // This part needs a decision on how reminders are stored with HealthIssue for M2 placeholder.
+      // For now, let's assume we're just noting it and M5 will handle storage.
+      print('Reminder Data for M2 placeholder: $reminderData'); 
 
       // Simulate network delay for demo
       await Future.delayed(const Duration(seconds: 1));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reminder details noted (placeholder). Actual scheduling in M5.')),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(content: Text('Reminder details noted (placeholder). Actual scheduling in M5.')),
+        // );
         Navigator.pop(context);
         widget.onReminderAdded();
       }
 
-      // try {
-      //   // Example: await widget.healthIssueService.addReminderToHealthIssue(widget.healthIssue.id!, reminderData);
-      //   if (mounted) {
-      //     ScaffoldMessenger.of(context).showSnackBar(
-      //       const SnackBar(content: Text('Reminder added successfully!')),
-      //     );
-      //     Navigator.pop(context);
-      //     widget.onReminderAdded();
-      //   }
-      // } catch (e) {
-      //   if (mounted) {
-      //     ScaffoldMessenger.of(context).showSnackBar(
-      //       SnackBar(content: Text('Failed to add reminder: ${e.toString()}')),
-      //     );
-      //   }
-      // } finally {
-      //   if (mounted) {
-      //     setState(() {
-      //       _isLoading = false;
-      //     });
-      //   }
-      // }
        setState(() {
         _isLoading = false;
       });
@@ -1175,7 +1242,7 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
                       ),
                     ),
                   ),
-            const SizedBox(height: 16.0), // Bottom padding
+            const SizedBox(height: 24.0), // Bottom padding
           ],
         ),
       ),
