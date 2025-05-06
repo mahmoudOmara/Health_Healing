@@ -111,7 +111,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             top: 20.0,
           ),
           child: _BookFollowUpBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onFollowUpBooked: () {
-            _refreshIssueDetails(); // Or a more specific refresh if needed
+            _refreshIssueDetails(); 
              ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Follow-up details noted.')),
             );
@@ -137,7 +137,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             top: 20.0,
           ),
           child: _AddReminderBottomSheetContent(healthIssue: _currentIssue, healthIssueService: _healthIssueService, onReminderAdded: () {
-            _refreshIssueDetails(); // Or a more specific refresh if needed
+            _refreshIssueDetails(); 
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Reminder details noted.')),
             );
@@ -166,12 +166,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
-              // validator: (value) { // Optional: Add validation if needed
-              //   if (value == null || value.trim().isEmpty) {
-              //     return 'Description cannot be empty.';
-              //   }
-              //   return null;
-              // },
             ),
           ),
           actions: <Widget>[
@@ -186,8 +180,6 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   final newDescription = descriptionController.text.trim();
-                  // Update the file description in _currentIssue.fileUploads
-                  // And then update the health issue in Firestore
                   List<Map<String, String>> updatedFileUploads = List.from(_currentIssue.fileUploads ?? []);
                   int fileIndex = updatedFileUploads.indexWhere((f) => f['fileId'] == fileData['fileId']);
 
@@ -295,8 +287,35 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     );
   }
   
-  List<Widget> _getAppBarActions(BuildContext context) {
-    return [
+  bool _isImageFileForThumbnail(String? fileName) {
+    if (fileName == null) return false;
+    final extension = p.extension(fileName).toLowerCase();
+    return [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension);
+  }
+
+  IconData _getIconForFileType(String fileName) {
+    final extension = p.extension(fileName).toLowerCase();
+    if ([".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension)) {
+      return Icons.image_outlined; // Placeholder, as thumbnail will be used
+    } else if (extension == ".pdf") {
+      return Icons.picture_as_pdf_outlined;
+    } else if ([".doc", ".docx", ".odt"].contains(extension)) {
+      return Icons.description_outlined;
+    } else if ([".xls", ".xlsx", ".ods"].contains(extension)) {
+      return Icons.table_chart_outlined;
+    } else if ([".ppt", ".pptx", ".odp"].contains(extension)) {
+      return Icons.slideshow_outlined;
+    } else if ([".zip", ".rar", ".tar", ".gz"].contains(extension)) {
+      return Icons.archive_outlined;
+    } else if ([".mp3", ".wav", ".aac"].contains(extension)) {
+      return Icons.audiotrack_outlined;
+    } else if ([".mp4", ".mov", ".avi"].contains(extension)) {
+      return Icons.video_file_outlined;
+    }
+    return Icons.attach_file_outlined;
+  }
+
+  List<Widget> _getAppBarActions(BuildContext context) {   return [
       IconButton(
         icon: const Icon(Icons.edit),
         tooltip: 'Edit Issue',
@@ -347,45 +366,99 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
             ]),
             const SizedBox(height: 20),
             _buildSectionTitle('Uploaded Files'),
-            _currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty
-                ? const Text('No files uploaded for this issue yet.')
-                : Column(
-                    children: _currentIssue.fileUploads!
-                        .map((file) => ListTile(
-                              leading: const Icon(Icons.attach_file),
-                                       subtitle: file[
-                                        'description'] != null &&
-                                    file['description']!.isNotEmpty
-                                ? Text(file['description']!)
-                                : const Text('No description'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent),
-                                    tooltip: 'Edit Description',
-                                    onPressed: () {
-                                      _showEditDescriptionDialog(context, file);
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                    tooltip: 'Delete File',
-                                    onPressed: () async {
-                                      // TODO: Implement file deletion logic from storage and Firestore array
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Delete for ${file['fileName'] ?? 'file'} (To be implemented).')),
+            Builder( 
+              builder: (context) {
+                if (_currentIssue.fileUploads == null || _currentIssue.fileUploads!.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(child: Text('No files uploaded for this issue yet.')),
+                  );
+                }
+
+                List<Widget> fileWidgets = [];
+                for (int i = 0; i < _currentIssue.fileUploads!.length; i++) {
+                  final file = _currentIssue.fileUploads![i];
+                  fileWidgets.add(
+                    Card(
+                      elevation: 1.0, 
+                      margin: const EdgeInsets.symmetric(vertical: 4.0),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                      child: ListTile(
+                        leading: Container( 
+                          width: 56.0,
+                          height: 56.0,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: _isImageFileForThumbnail(file['fileName']) && file['downloadURL'] != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: Image.network(
+                                    file['downloadURL']!,
+                                    fit: BoxFit.cover,
+                                    width: 56.0,
+                                    height: 56.0,
+                                    loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.0,
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                              : null,
+                                        ),
                                       );
                                     },
+                                    errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                                      return Icon(_getIconForFileType(file['fileName']!), size: 28.0, color: Theme.of(context).colorScheme.primary);
+                                    },
                                   ),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                  ),
+                                )
+                              : Icon(_getIconForFileType(file['fileName']!), size: 28.0, color: Theme.of(context).colorScheme.primary),
+                        ),
+                        title: Text(
+                          file['fileName'] ?? 'Unknown File',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          file['description'] != null && file['description']!.isNotEmpty ? file['description']! : 'No description',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              color: Theme.of(context).colorScheme.secondary,
+                              tooltip: 'Edit Description',
+                              onPressed: () {
+                                _showEditDescriptionDialog(context, file);
+                              },
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          print('File tapped: ${file['downloadURL']}');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('File: ${file['fileName']}. URL: ${file['downloadURL']}')),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                  if (i < _currentIssue.fileUploads!.length - 1) {
+                    fileWidgets.add(const Divider(height: 8, thickness: 0.5, indent: 16, endIndent: 16));
+                  }
+                }
+                return Column(children: fileWidgets);
+              },
+            ),
             const SizedBox(height: 20),
-            _buildSectionTitle(
-                'History Timeline'),
+            _buildSectionTitle('History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
               stream: _healthIssueService.getHealthIssueUpdates(_currentIssue.id!),
               builder: (context, snapshot) {
@@ -426,7 +499,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                                   children: [
                                     Text('Attached Files:', style: Theme.of(context).textTheme.titleSmall),
                                     ...update.files!.map((file) => ListTile(
-                                          leading: const Icon(Icons.attach_file, size: 18),
+                                          leading: Icon(_getIconForFileType(file['fileName']!), size: 18),
                                           title: Text(file['fileName']!, style: const TextStyle(fontSize: 14)),
                                           dense: true,
                                         )),
@@ -571,26 +644,34 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
           TextFormField(
             controller: _updateTextController,
             decoration: const InputDecoration(
-              labelText: 'New Update/Log',
-              hintText: 'Enter details about the update...',
+              labelText: 'Update Details',
+              hintText: 'Enter notes about the update...',
               border: OutlineInputBorder(),
             ),
-            maxLines: 3,
+            maxLines: 4,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter an update.';
+                return 'Update text cannot be empty.';
               }
               return null;
             },
           ),
           const SizedBox(height: 16.0),
           _isLoading
-              ? const CircularProgressIndicator()
-              : ElevatedButton(
-                  onPressed: _submitUpdate,
-                  child: const Text('Save Update'),
+              ? const Center(child: CircularProgressIndicator()) 
+              : SizedBox(
+                  width: double.infinity, 
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.save_alt_outlined), 
+                    label: const Text(
+                        'Save Update'), 
+                    onPressed: _submitUpdate,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0), 
+                    ),
+                  ),
                 ),
-          const SizedBox(height: 24.0), // Increased bottom padding 
+          const SizedBox(height: 24.0), 
         ],
       ),
     );
@@ -613,7 +694,7 @@ class _UploadFileBottomSheetContent extends StatefulWidget {
 }
 
 class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetContent> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(); // Can be used if more validation is added
   final _descriptionController = TextEditingController();
   File? _selectedFile;
   String? _originalFileName;
@@ -625,42 +706,29 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
     super.dispose();
   }
 
-  bool _isImageFile(String filePath) {
-    final extension = p.extension(filePath).toLowerCase();
-    return ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'].contains(extension);
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _selectedFile = File(result.files.single.path!);
+        _originalFileName = result.files.single.name;
+      });
+    } else {
+      // User canceled the picker
+    }
   }
 
-  Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles();
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _originalFileName = result.files.single.name;
-        });
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No file selected.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking file: ${e.toString()}')),
-        );
-      }
-    }
+  bool _isImageFile(String? path) {
+    if (path == null) return false;
+    final extension = p.extension(path).toLowerCase();
+    return [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"].contains(extension);
   }
 
   Future<void> _submitUpload() async {
     if (_selectedFile == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a file to upload.')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please pick a file first.')),
+      );
       return;
     }
 
@@ -668,27 +736,12 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
       _isLoading = true;
     });
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: You must be logged in.')),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-
     try {
-      String filePathInStorage = 'user_uploads/${user.uid}/health_issues/${widget.healthIssue.id}/${_originalFileName ?? DateTime.now().millisecondsSinceEpoch.toString() + p.extension(_selectedFile!.path)}';
-      
-      Map<String, String>? uploadResult = await widget.healthIssueService.uploadFileWithDescription(
-          _selectedFile!,
-          filePathInStorage,
-          _descriptionController.text.trim(),
-          _originalFileName ?? _selectedFile!.path.split('/').last
+      final uploadResult = await widget.healthIssueService.uploadFileWithDescription(
+        _selectedFile!,
+        widget.healthIssue.id!, 
+        _descriptionController.text.trim(),
+        _originalFileName ?? 'unknown_file' 
       );
 
       if (uploadResult == null) {
@@ -702,10 +755,9 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
             List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
             updatedFileUploads.add({
               'fileId': DateTime.now().millisecondsSinceEpoch.toString(), 
-              'fileName': uploadResult['fileName']!, 
+              'fileName': uploadResult['fileName']!,
               'downloadURL': uploadResult['downloadURL']!,
-              'description': _descriptionController.text.trim(), 
-              'uploadedAt': Timestamp.now().toDate().toIso8601String(),
+              'description': _descriptionController.text.trim(),
             });
 
             HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads, updatedAt: Timestamp.now());
@@ -744,12 +796,17 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          ElevatedButton.icon(
+            icon: const Icon(Icons.attach_file_outlined),
+            label: const Text('Pick File'),
+            onPressed: _pickFile,
+            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)), // Make pick file button full width
+          ),
           if (_selectedFile != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: _isImageFile(_selectedFile!.path)
                   ? Image.file(_selectedFile!, height: 100, fit: BoxFit.cover)
-                  // Display a generic icon for non-image files
                   : Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Icon(
@@ -759,11 +816,6 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
                     ),
                   )
             ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.attach_file),
-            label: const Text('Pick File'),
-            onPressed: _pickFile,
-          ),
           const SizedBox(height: 16.0),
           TextFormField(
             controller: _descriptionController,
@@ -776,16 +828,20 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
           ),
           const SizedBox(height: 24.0),
           _isLoading
-              ? const CircularProgressIndicator()
-              : ElevatedButton.icon(
-                  icon: const Icon(Icons.cloud_upload),
-                  label: const Text('Upload and Save File'),
-                  onPressed: _submitUpload,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+              ? const Center(child: CircularProgressIndicator()) 
+              : SizedBox(
+                  width: double.infinity, 
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.cloud_upload_outlined), 
+                    label: const Text(
+                        'Upload and Save File'), 
+                    onPressed: _submitUpload,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0), 
+                    ),
                   ),
                 ),
-          const SizedBox(height: 24.0), // Bottom padding
+          const SizedBox(height: 24.0), 
         ],
       ),
     );
@@ -810,22 +866,12 @@ class _BookFollowUpBottomSheetContent extends StatefulWidget {
 class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomSheetContent> {
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
-  final _reasonController = TextEditingController();
+  final _notesController = TextEditingController();
   bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.healthIssue.nextFollowUpDate != null) {
-      _selectedDate = widget.healthIssue.nextFollowUpDate!.toDate();
-      _selectedTime = TimeOfDay.fromDateTime(_selectedDate!);
-    }
-  }
-
-  @override
   void dispose() {
-    _reasonController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -833,7 +879,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
     if (picked != null && picked != _selectedDate) {
@@ -843,65 +889,33 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
     }
   }
 
-  Future<void> _pickTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-    );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
-    }
-  }
-
   Future<void> _submitFollowUp() async {
-    if (_selectedDate == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date for the follow-up.')),
-      );
-      return;
-    }
-    if (_selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a time for the follow-up.')),
-      );
-      return;
-    }
-
     if (_formKey.currentState!.validate()) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a follow-up date.')),
+        );
+        return;
+      }
       setState(() {
         _isLoading = true;
       });
-
-      final DateTime finalDateTime = DateTime(
-        _selectedDate!.year,
-        _selectedDate!.month,
-        _selectedDate!.day,
-        _selectedTime!.hour,
-        _selectedTime!.minute,
-      );
-
-      HealthIssue updatedIssue = widget.healthIssue.copyWith(
-        nextFollowUpDate: Timestamp.fromDate(finalDateTime),
-        updatedAt: Timestamp.now(),
-        // TODO: Add reason to a new field in HealthIssue model if needed for Milestone 4
-        // followUpReason: _reasonController.text.trim(), 
-      );
-
       try {
+        HealthIssue updatedIssue = widget.healthIssue.copyWith(
+          nextFollowUpDate: Timestamp.fromDate(_selectedDate!),
+          // Potentially save notes somewhere, e.g., as a new HealthIssueUpdate or a dedicated field
+          // For now, we are just updating the nextFollowUpDate on the main issue
+          updatedAt: Timestamp.now(),
+        );
         await widget.healthIssueService.updateHealthIssue(updatedIssue);
         if (mounted) {
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   const SnackBar(content: Text('Follow-up booked successfully!')),
-          // );
           Navigator.pop(context);
           widget.onFollowUpBooked();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to book follow-up: ${e.toString()}')),
+            SnackBar(content: Text('Failed to save follow-up: ${e.toString()}')),
           );
         }
       } finally {
@@ -920,48 +934,23 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
       key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text('Book Follow-Up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Book Next Follow-Up', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16.0),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickDate(context),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date',
-                      border: OutlineInputBorder(),
-                    ),
-                    child: Text(_selectedDate == null ? 'Select Date' : DateFormat.yMd().format(_selectedDate!)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickTime(context),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Time',
-                      border: OutlineInputBorder(),
-                    ),
-                    child: Text(_selectedTime == null ? 'Select Time' : _selectedTime!.format(context)),
-                  ),
-                ),
-              ),
-            ],
+          ListTile(
+            title: Text(_selectedDate == null ? 'Select Date' : DateFormat.yMMMd().format(_selectedDate!)),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () => _pickDate(context),
           ),
           const SizedBox(height: 16.0),
           TextFormField(
-            controller: _reasonController,
+            controller: _notesController,
             decoration: const InputDecoration(
-              labelText: 'Reason for Follow-Up (Optional)',
-              hintText: 'e.g., Check-up, Discuss results',
+              labelText: 'Notes (Optional)',
+              hintText: 'Add any notes for the follow-up...',
               border: OutlineInputBorder(),
             ),
-            maxLines: 2,
+            maxLines: 3,
           ),
           const SizedBox(height: 24.0),
           _isLoading
@@ -969,7 +958,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
               : SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.check_circle_outline),
+                    icon: const Icon(Icons.save_alt_outlined),
                     label: const Text('Save Follow-Up'),
                     onPressed: _submitFollowUp,
                     style: ElevatedButton.styleFrom(
@@ -977,7 +966,7 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
                     ),
                   ),
                 ),
-          const SizedBox(height: 24.0), // Bottom padding
+          const SizedBox(height: 24.0),
         ],
       ),
     );
@@ -1001,121 +990,72 @@ class _AddReminderBottomSheetContent extends StatefulWidget {
 
 class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetContent> {
   final _formKey = GlobalKey<FormState>();
-  String? _selectedReminderType;
-  bool _isRepeated = false;
-  String? _selectedRepetitionType; // e.g., Daily, Weekly, Monthly
+  DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  DateTime? _selectedStartDate;
-  DateTime? _selectedEndDate;
-  final _reminderNotesController = TextEditingController();
+  final _reminderTextController = TextEditingController();
   bool _isLoading = false;
 
-  final List<String> _reminderTypes = ['Medicine', 'Appointment', 'Symptoms Check', 'Measurement', 'Other'];
-  final List<String> _repetitionTypes = ['Daily', 'Weekly', 'Bi-Weekly', 'Monthly'];
-
-  @override
+   @override
   void dispose() {
-    _reminderNotesController.dispose();
+    _reminderTextController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<void> _pickDateTime(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-    );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
-    }
-  }
-
-  Future<void> _pickDate(BuildContext context, {bool isStartDate = true}) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: (isStartDate ? _selectedStartDate : _selectedEndDate) ?? DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
     );
-    if (picked != null) {
-      setState(() {
-        if (isStartDate) {
-          _selectedStartDate = picked;
-          if (_selectedEndDate != null && _selectedEndDate!.isBefore(_selectedStartDate!)) {
-            _selectedEndDate = _selectedStartDate; // Ensure end date is not before start date
-          }
-        } else {
-          _selectedEndDate = picked;
-        }
-      });
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: _selectedTime ?? TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDate = pickedDate;
+          _selectedTime = pickedTime;
+        });
+      }
     }
   }
 
   Future<void> _submitReminder() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedTime == null) {
+      if (_selectedDate == null || _selectedTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a time for the reminder.')),
+          const SnackBar(content: Text('Please select a date and time for the reminder.')),
         );
         return;
       }
-      if (_selectedStartDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a start date for the reminder.')),
-        );
-        return;
-      }
-      if (_isRepeated && _selectedEndDate == null && _selectedRepetitionType != 'Daily') { // End date optional for daily
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an end date for the repeated reminder.')),
-        );
-        return;
-      }
-      if (_isRepeated && _selectedRepetitionType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a repetition type for the repeated reminder.')),
-        );
-        return;
-      }
-
       setState(() {
         _isLoading = true;
       });
 
-      Map<String, dynamic> reminderData = {
-        'reminderId': DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID
-        'type': _selectedReminderType,
-        'isRepeated': _isRepeated,
-        'repetitionType': _isRepeated ? _selectedRepetitionType : null,
-        'time': _selectedTime!.format(context),
-        'startDate': _selectedStartDate != null ? Timestamp.fromDate(_selectedStartDate!) : null,
-        'endDate': _isRepeated && _selectedEndDate != null ? Timestamp.fromDate(_selectedEndDate!) : null,
-        'notes': _reminderNotesController.text.trim(),
-        'createdAt': Timestamp.now(),
-        'isActive': true, // To control if reminder is active
-      };
+      final reminderDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
 
-      // In a real scenario, you'd save this to Firestore, likely in a subcollection of the health issue.
-      // For now, we'll add it to the HealthIssue object if a field exists, or just log it.
-      // This part needs a decision on how reminders are stored with HealthIssue for M2 placeholder.
-      // For now, let's assume we're just noting it and M5 will handle storage.
-      print('Reminder Data for M2 placeholder: $reminderData'); 
+      // Placeholder: In a real app, this would integrate with a notification service
+      print('Reminder Set: ${_reminderTextController.text} at $reminderDateTime for issue ${widget.healthIssue.issueName}');
+      
+      // Simulate saving reminder (e.g., could be a field on HealthIssue or separate collection)
+      // For now, we just show a success message and pop.
+      await Future.delayed(const Duration(seconds: 1)); 
 
-      // Simulate network delay for demo
-      await Future.delayed(const Duration(seconds: 1));
-
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(content: Text('Reminder details noted (placeholder). Actual scheduling in M5.')),
-        // );
         Navigator.pop(context);
         widget.onReminderAdded();
       }
-
-       setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -1123,128 +1063,49 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text('Add Reminder', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16.0),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(labelText: 'Reminder Type', border: OutlineInputBorder()),
-              value: _selectedReminderType,
-              hint: const Text('Select Reminder Type'),
-              items: _reminderTypes.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedReminderType = newValue;
-                });
-              },
-              validator: (value) => value == null ? 'Please select a reminder type' : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text('Add Reminder', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16.0),
+          TextFormField(
+            controller: _reminderTextController,
+            decoration: const InputDecoration(
+              labelText: 'Reminder Text',
+              hintText: 'e.g., Take medication, Doctor appointment',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 16.0),
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickDate(context, isStartDate: true),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Start Date', border: OutlineInputBorder()),
-                      child: Text(_selectedStartDate == null ? 'Select Date' : DateFormat.yMd().format(_selectedStartDate!)),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Reminder text cannot be empty.';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16.0),
+          ListTile(
+            title: Text(_selectedDate == null || _selectedTime == null 
+                ? 'Select Date & Time' 
+                : '${DateFormat.yMMMd().format(_selectedDate!)} ${(_selectedTime ?? TimeOfDay.now()).format(context)}'),
+            trailing: const Icon(Icons.calendar_today_outlined),
+            onTap: () => _pickDateTime(context),
+          ),
+          const SizedBox(height: 24.0),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.alarm_add_outlined),
+                    label: const Text('Set Reminder'),
+                    onPressed: _submitReminder,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickTime(context),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Time', border: OutlineInputBorder()),
-                      child: Text(_selectedTime == null ? 'Select Time' : _selectedTime!.format(context)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16.0),
-            SwitchListTile(
-              title: const Text('Repeat Reminder?'),
-              value: _isRepeated,
-              onChanged: (bool value) {
-                setState(() {
-                  _isRepeated = value;
-                  if (!_isRepeated) {
-                    _selectedRepetitionType = null;
-                    _selectedEndDate = null;
-                  }
-                });
-              },
-            ),
-            if (_isRepeated)
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Repeat Every', border: OutlineInputBorder()),
-                      value: _selectedRepetitionType,
-                      hint: const Text('Select Repetition'),
-                      items: _repetitionTypes.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        setState(() {
-                          _selectedRepetitionType = newValue;
-                        });
-                      },
-                      validator: (value) => _isRepeated && value == null ? 'Please select repetition type' : null,
-                    ),
-                    const SizedBox(height: 16.0),
-                    InkWell(
-                      onTap: () => _pickDate(context, isStartDate: false),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'End Date (Optional for Daily)', border: OutlineInputBorder()),
-                        child: Text(_selectedEndDate == null ? 'Select End Date' : DateFormat.yMd().format(_selectedEndDate!)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16.0),
-            TextFormField(
-              controller: _reminderNotesController,
-              decoration: const InputDecoration(
-                labelText: 'Reminder Notes (Optional)',
-                hintText: 'e.g., Take with food, Call before going',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 24.0),
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.alarm_add_outlined),
-                      label: const Text('Save Reminder'),
-                      onPressed: _submitReminder,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      ),
-                    ),
-                  ),
-            const SizedBox(height: 24.0), // Bottom padding
-          ],
-        ),
+          const SizedBox(height: 24.0),
+        ],
       ),
     );
   }
