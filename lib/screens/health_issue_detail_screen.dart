@@ -218,6 +218,99 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     );
   }
 
+  void _showFilePreviewModal(BuildContext context, Map<String, String> fileData) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final String? fileName = fileData["fileName"];
+        final String? downloadURL = fileData["downloadURL"];
+        final String? description = fileData["description"];
+        final bool isImage = _isImageFileForThumbnail(fileName);
+
+        return AlertDialog(
+          title: Text(fileName ?? "File Preview"),
+          contentPadding: const EdgeInsets.all(16.0),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isImage && downloadURL != null)
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(dialogContext).size.height * 0.5, 
+                      ),
+                      child: Image.network(
+                        downloadURL,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_getIconForFileType(fileName!), size: 60.0, color: Theme.of(context).colorScheme.error),
+                              const SizedBox(height: 8),
+                              const Text("Error loading preview", textAlign: TextAlign.center),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  )
+                else if (fileName != null)
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_getIconForFileType(fileName), size: 80.0, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(height: 16.0),
+                        Text(
+                          "Cannot preview this file type directly.",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(dialogContext).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                if (description != null && description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Column(
+                       crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Description:", style: Theme.of(dialogContext).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(description),
+                      ],
+                    )
+                  ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("Close"),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            // Optional: Add a download/open button here later if needed
+          ],
+        );
+      },
+    );
+  }
+
 
   Widget _buildActionHub(BuildContext context) {
     String formatButtonLabel(String label) {
@@ -427,9 +520,7 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                           file['description'] != null && file['description']!.isNotEmpty ? file['description']! : 'No description',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                             mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit_outlined),
@@ -439,26 +530,52 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
                                 _showEditDescriptionDialog(context, file);
                               },
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: Theme.of(context).colorScheme.error,
+                              tooltip: 'Delete File',
+                              onPressed: () async {
+                                // TODO: Implement file deletion logic from storage and Firestore array
+                                // This will require updating the HealthIssue document and deleting from Firebase Storage
+                                final confirmDelete = await showDialog<bool>(
+                                  context: context,
+                                  builder: (BuildContext dialogContext) => AlertDialog(
+                                    title: const Text('Confirm Delete'),
+                                    content: Text('Are you sure you want to delete ${file['fileName'] ?? 'this file'}? This action cannot be undone.'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                                        child: const Text('Delete'),
+                                        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmDelete == true) {
+                                   ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Deletion for ${file['fileName'] ?? 'file'} (To be implemented).')),
+                                  );
+                                  // Actual deletion logic will be implemented in a later task if requested
+                                }
+                              },
+                            ),
                           ],
                         ),
                         onTap: () {
-                          print('File tapped: ${file['downloadURL']}');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('File: ${file['fileName']}. URL: ${file['downloadURL']}')),
-                          );
+                          _showFilePreviewModal(context, file);
                         },
                       ),
                     ),
                   );
-                  if (i < _currentIssue.fileUploads!.length - 1) {
-                    fileWidgets.add(const Divider(height: 8, thickness: 0.5, indent: 16, endIndent: 16));
-                  }
+                  // Separator removed as per user request
                 }
                 return Column(children: fileWidgets);
               },
-            ),
-            const SizedBox(height: 20),
-            _buildSectionTitle('History Timeline'),
+            )'History Timeline'),
             StreamBuilder<List<HealthIssueUpdate>>(
               stream: _healthIssueService.getHealthIssueUpdates(_currentIssue.id!),
               builder: (context, snapshot) {
