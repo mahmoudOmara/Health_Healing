@@ -863,30 +863,37 @@ class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetCon
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text('Upload New File', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16.0),
-          TextFormField(
-            controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'File Description (Optional)',
-              hintText: 'Enter a brief description for the file...',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 2,
-          ),
+          Text("Upload New File", style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16.0),
           OutlinedButton.icon(
             icon: const Icon(Icons.attach_file),
-            label: Text(_selectedFileName ?? 'Select File'),
+            label: Text(_selectedFileName ?? "Select File"),
             onPressed: _pickFile,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50), // Make it full width and give it some height
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0), // Rounded corners like a TextFormField
+              ),
+              side: BorderSide(color: Theme.of(context).colorScheme.outline), // Match TextFormField border
+            ),
           ),
           if (_selectedFile != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8.0),
+              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
               child: _isImageFileForThumbnail(_selectedFileName) 
                 ? Image.file(_selectedFile!, height: 100, fit: BoxFit.contain)
                 : Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(_getIconForFileType(_selectedFileName!)), const SizedBox(width: 8), Text(_selectedFileName!)]),
             ),
+          const SizedBox(height: 16.0),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: const InputDecoration(
+              labelText: "File Description (Optional)",
+              hintText: "Enter a brief description for the file...",
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
           const SizedBox(height: 20.0),
           _isLoading
               ? const Center(child: CircularProgressIndicator())

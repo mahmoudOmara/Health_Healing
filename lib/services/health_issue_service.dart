@@ -5,6 +5,8 @@ import "package:firebase_storage/firebase_storage.dart";
 import "package:health_healing/models/health_issue.dart";
 import "package:health_healing/models/health_issue_update.dart";
 import "package:firebase_auth/firebase_auth.dart";
+import 'package:mime_type/mime_type.dart'; // Added for MIME type detection
+import 'package:path/path.dart' as p; // Added for getting file extension for MIME type
 
 class HealthIssueService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -106,7 +108,6 @@ class HealthIssueService {
     }
   }
 
-  // Renamed from getHealthIssueUpdates to match usage in detail screen
   Stream<List<HealthIssueUpdate>> getIssueUpdatesStream(String issueId) {
     if (_currentUserId == null) {
       return Stream.value([]);
@@ -123,7 +124,6 @@ class HealthIssueService {
     });
   }
 
-  // Signature: File file, String issueId, String description, String originalFileName
   Future<Map<String, String>> uploadFileWithDescription(File file, String issueId, String description, String originalFileName) async {
     if (_currentUserId == null) {
       throw Exception("User not logged in");
@@ -134,27 +134,31 @@ class HealthIssueService {
     try {
       String storagePath = "user_uploads/$_currentUserId/health_issues/$issueId/$originalFileName";
       Reference storageRef = _storage.ref().child(storagePath);
-      UploadTask uploadTask = storageRef.putFile(file);
+
+      // Determine MIME type
+      String? mimeType = mime(p.basename(file.path));
+      final metadata = SettableMetadata(contentType: mimeType ?? "application/octet-stream");
+
+      UploadTask uploadTask = storageRef.putFile(file, metadata);
       TaskSnapshot snapshot = await uploadTask;
       String downloadURL = await snapshot.ref.getDownloadURL();
       
-      // Create file metadata to store in Firestore
       Map<String, String> fileMetadata = {
-        "fileId": storageRef.name, // Using storage ref name as a unique ID for the file within this issue
+        "fileId": storageRef.name,
         "fileName": originalFileName,
         "downloadURL": downloadURL,
         "description": description,
-        "uploadedAt": Timestamp.now().millisecondsSinceEpoch.toString(), // Storing as string for simplicity, or use Timestamp
-        "storagePath": storagePath // Store the path for deletion
+        "uploadedAt": Timestamp.now().millisecondsSinceEpoch.toString(),
+        "storagePath": storagePath,
+        "mimeType": mimeType ?? "application/octet-stream" // Store MIME type as well
       };
 
-      // Add file metadata to the health issue document in Firestore
       await _healthIssuesCollection.doc(issueId).update({
         "fileUploads": FieldValue.arrayUnion([fileMetadata]),
         "updatedAt": Timestamp.now(),
       });
 
-      return fileMetadata; // Return the full metadata including the new fileId
+      return fileMetadata;
     } catch (e) {
       print("Error uploading file with description to Firebase Storage: $e");
       if (e is FirebaseException) {
@@ -165,7 +169,6 @@ class HealthIssueService {
     }
   }
 
-  // New method to delete a file from storage and Firestore
   Future<void> deleteFileFromIssue(String issueId, Map<String, String> fileData) async {
     if (_currentUserId == null) {
       throw Exception("User not logged in");
@@ -178,34 +181,27 @@ class HealthIssueService {
     }
 
     try {
-      // 1. Delete from Firebase Storage
       Reference storageRef = _storage.ref().child(fileData['storagePath']!);
       await storageRef.delete();
 
-      // 2. Remove from Firestore array in HealthIssue document
-      // We need to use the fileId or a unique identifier stored in fileData to remove it accurately.
-      // Assuming fileData contains a unique 'fileId' that was generated during upload.
       if (fileData['fileId'] == null || fileData['fileId']!.isEmpty) {
           throw Exception("File ID is missing, cannot reliably remove from Firestore.");
       }
 
       await _healthIssuesCollection.doc(issueId).update({
-        "fileUploads": FieldValue.arrayRemove([fileData]), // This removes based on exact map match
+        "fileUploads": FieldValue.arrayRemove([fileData]),
         "updatedAt": Timestamp.now(),
       });
 
     } catch (e) {
       print("Error deleting file: $e");
       if (e is FirebaseException && e.code == 'object-not-found') {
-        // If file not found in storage, it might have been already deleted or path is wrong.
-        // Proceed to attempt removal from Firestore if that's desired behavior.
         print("File not found in Storage, attempting to remove from Firestore metadata.");
          await _healthIssuesCollection.doc(issueId).update({
             "fileUploads": FieldValue.arrayRemove([fileData]),
             "updatedAt": Timestamp.now(),
         }).catchError((fsError) {
             print("Error removing file metadata from Firestore after storage deletion failed: $fsError");
-            // Decide if to rethrow fsError or the original storage error
         });
       }
       rethrow;
