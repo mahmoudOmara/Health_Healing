@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:health_healing/models/calendar_event.dart';
 import 'package:health_healing/models/health_issue.dart';
 import 'package:health_healing/models/health_issue_update.dart';
+import 'package:health_healing/services/calendar_event_service.dart';
 import 'package:health_healing/services/health_issue_service.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:health_healing/screens/add_edit_health_issue_screen.dart';
@@ -9,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart'; // For file picking
 import 'package:path/path.dart' as p; // For getting file extension
+import 'package:uuid/uuid.dart'; // For generating unique IDs
 
 class HealthIssueDetailScreen extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -21,8 +24,10 @@ class HealthIssueDetailScreen extends StatefulWidget {
 
 class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
   final HealthIssueService _healthIssueService = HealthIssueService();
+  final CalendarEventService _calendarEventService = CalendarEventService(); // Instantiate CalendarEventService
   late HealthIssue _currentIssue;
   bool _isDeletingFile = false;
+  final Uuid _uuid = Uuid(); // UUID generator
 
   @override
   void initState() {
@@ -122,13 +127,15 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           ),
           child: _BookFollowUpBottomSheetContent(
             healthIssue: _currentIssue,
-            healthIssueService: _healthIssueService,
+            // healthIssueService: _healthIssueService, // Not directly used, but could be for logging
+            calendarEventService: _calendarEventService, // Pass CalendarEventService
+            uuid: _uuid, // Pass Uuid
             onFollowUpBooked: () {
               Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
               _refreshIssueDetails();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Follow-up details noted.')),
+                  const SnackBar(content: Text('Follow-up details noted and logged.')),
                 );
               }
             }
@@ -155,13 +162,14 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
           ),
           child: _AddReminderBottomSheetContent(
             healthIssue: _currentIssue,
-            healthIssueService: _healthIssueService,
+            calendarEventService: _calendarEventService, // Pass CalendarEventService
+            uuid: _uuid, // Pass Uuid
             onReminderAdded: () {
               Navigator.of(bottomSheetContext).pop(); // Close bottom sheet
               _refreshIssueDetails();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reminder details noted.')),
+                  const SnackBar(content: Text('Reminder added successfully.')),
                 );
               }
             }
@@ -539,58 +547,53 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
       itemBuilder: (context, index) {
         final fileData = _currentIssue.fileUploads![index];
         final String? fileName = fileData["fileName"];
-        final String? description = fileData["description"];
         final String? downloadURL = fileData["downloadURL"];
-
-        Widget leadingWidget;
-        if (_isImageFileForThumbnail(fileName) && downloadURL != null) {
-          leadingWidget = SizedBox(
-            width: 50.0, // Standardized width
-            height: 50.0, // Standardized height
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: Image.network(
-                downloadURL,
-                fit: BoxFit.cover, // Ensure image covers the square area
-                errorBuilder: (context, error, stackTrace) => const SizedBox(width: 50, height: 50, child: Center(child: Icon(Icons.broken_image, size: 30.0))),
-                loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const SizedBox(width: 50, height: 50, child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)));
-                },
-              ),
-            ),
-          );
-        } else {
-          leadingWidget = SizedBox(
-            width: 50.0, // Standardized width
-            height: 50.0, // Standardized height
-            child: Center(child: Icon(_getIconForFileType(fileName), size: 30.0)), // Centered icon
-          );
-        }
+        final String? description = fileData["description"];
 
         return Card(
           elevation: 1.5,
-          margin: const EdgeInsets.symmetric(vertical: 4.0),
+          margin: const EdgeInsets.symmetric(vertical: 6.0),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
           child: ListTile(
-            leading: leadingWidget,
-            title: Text(fileName ?? "Unknown File", style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(description ?? "No description", maxLines: 2, overflow: TextOverflow.ellipsis),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+            leading: SizedBox(
+              width: 50,
+              height: 50,
+              child: _isImageFileForThumbnail(fileName) && downloadURL != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: Image.network(
+                        downloadURL,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(_getIconForFileType(fileName!), size: 30),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+                        },
+                      ),
+                    )
+                  : Icon(_getIconForFileType(fileName), size: 30.0, color: Theme.of(context).colorScheme.secondary),
+            ),
+            title: Text(fileName ?? "Unnamed File", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            subtitle: description != null && description.isNotEmpty
+                ? Text(description, maxLines: 2, overflow: TextOverflow.ellipsis)
+                : const Text("No description", style: TextStyle(fontStyle: FontStyle.italic)),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit, size: 20.0),
+                  icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: "Edit Description",
                   onPressed: () => _showEditDescriptionDialog(context, fileData),
                 ),
-                if (_isDeletingFile && _currentIssue.fileUploads![index]['fileId'] == fileData['fileId']) 
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.0))
-                else
-                    IconButton(
-                        icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20.0),
-                        tooltip: "Delete File",
-                        onPressed: () => _deleteFile(fileData),
-                    ),
+                if (!_isDeletingFile) // Show delete button only if not currently deleting
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, size: 20, color: Theme.of(context).colorScheme.error),
+                    tooltip: "Delete File",
+                    onPressed: () => _deleteFile(fileData),
+                  ),
+                if (_isDeletingFile) // Show progress indicator if deleting
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               ],
             ),
             onTap: () => _showFilePreviewModal(context, fileData),
@@ -600,27 +603,28 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     );
   }
 
-  bool _isImageFileForThumbnail(String? fileName) {
-    if (fileName == null) return false;
-    final extension = p.extension(fileName.toLowerCase());
-    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(extension);
-  }
-
   IconData _getIconForFileType(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file_outlined;
     final extension = p.extension(fileName.toLowerCase());
     switch (extension) {
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+      case '.bmp':
+      case '.webp':
+        return Icons.image_outlined;
       case '.pdf':
         return Icons.picture_as_pdf_outlined;
       case '.doc':
       case '.docx':
-        return Icons.description_outlined; // Word document
+        return Icons.description_outlined; // More generic document icon
       case '.xls':
       case '.xlsx':
-        return Icons.table_chart_outlined; // Excel sheet
+        return Icons.table_chart_outlined;
       case '.ppt':
       case '.pptx':
-        return Icons.slideshow_outlined; // PowerPoint
+        return Icons.slideshow_outlined;
       case '.txt':
         return Icons.article_outlined;
       case '.zip':
@@ -639,90 +643,91 @@ class _HealthIssueDetailScreenState extends State<HealthIssueDetailScreen> {
     }
   }
 
+  bool _isImageFileForThumbnail(String? fileName) {
+    if (fileName == null) return false;
+    final extension = p.extension(fileName.toLowerCase());
+    return [
+      
+      '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'
+    ].contains(extension);
+  }
+
   Widget _buildHistoryTimeline() {
     if (_currentIssue.id == null) {
-      return const Center(child: Text("No history available."));
+      return const Center(child: Text("Issue ID is missing, cannot load timeline."));
     }
     return StreamBuilder<List<HealthIssueUpdate>>(
-      stream: _healthIssueService.getIssueUpdatesStream(_currentIssue.id!),
+      stream: _healthIssueService.getHealthIssueUpdatesStream(_currentIssue.id!),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("No updates or actions logged yet."));
-        }
         if (snapshot.hasError) {
-          return Center(child: Text("Error loading history: ${snapshot.error}"));
+          return Center(child: Text("Error loading timeline: ${snapshot.error}"));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("No updates or activities logged yet."));
         }
 
         final updates = snapshot.data!;
+
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: updates.length,
           itemBuilder: (context, index) {
             final update = updates[index];
-            final bool isFirst = index == 0;
-            final bool isLast = index == updates.length - 1;
+            IconData timelineIcon = Icons.info_outline; // Default icon
+            Color? iconColor = Theme.of(context).colorScheme.secondary;
+            String title = "Update";
 
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  SizedBox(
-                    width: 40.0, // Width for the timeline line and node
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Expanded(
-                          child: Container(
-                            width: 2.0,
-                            color: isFirst ? Colors.transparent : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+            if (update.updateType == "file_upload") {
+              timelineIcon = Icons.upload_file_outlined;
+              title = "File Uploaded";
+            } else if (update.updateType == "follow_up") {
+              timelineIcon = Icons.calendar_today_outlined;
+              title = "Follow-up Logged";
+            } else if (update.updateType == "reminder_added") {
+              timelineIcon = Icons.alarm_add_outlined;
+              title = "Reminder Logged";
+            } else if (update.updateType == "general_update") {
+               timelineIcon = Icons.article_outlined;
+               title = "General Update";
+            }
+
+            return Card(
+              elevation: 1.0,
+              margin: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(timelineIcon, size: 28.0, color: iconColor),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                        ),
-                        Container(
-                          width: 12.0,
-                          height: 12.0,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
+                          const SizedBox(height: 2.0),
+                          Text(
+                            update.updateText,
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            width: 2.0,
-                            color: isLast ? Colors.transparent : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                          const SizedBox(height: 4.0),
+                          Text(
+                            DateFormat.yMMMd().add_jm().format(update.timestamp.toDate()),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-                      child: Card(
-                        elevation: 1.0,
-                        margin: const EdgeInsets.symmetric(vertical: 4.0), // Keep some vertical margin for the card itself
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min, // Important for Column inside IntrinsicHeight
-                            children: <Widget>[
-                              Text(update.updateText, style: Theme.of(context).textTheme.bodyMedium),
-                              const SizedBox(height: 4.0),
-                              Text(
-                                DateFormat.yMMMd().add_jm().format(update.updateDate.toDate()),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -753,36 +758,23 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
   final _formKey = GlobalKey<FormState>();
   final _updateTextController = TextEditingController();
   bool _isLoading = false;
-  bool _isFormValid = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateTextController.addListener(_validateForm);
-  }
 
   @override
   void dispose() {
-    _updateTextController.removeListener(_validateForm);
     _updateTextController.dispose();
     super.dispose();
   }
 
-  void _validateForm() {
-    setState(() {
-      _isFormValid = _updateTextController.text.trim().isNotEmpty;
-    });
-  }
-
-  Future<void> _submitUpdate() async {
-    if (_formKey.currentState!.validate() && _isFormValid) {
-      setState(() => _isLoading = true);
+  Future<void> _saveUpdate() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() { _isLoading = true; });
       try {
-        final update = HealthIssueUpdate(
-          updateText: _updateTextController.text.trim(),
-          updateDate: Timestamp.now(),
+        final updateText = _updateTextController.text.trim();
+        await widget.healthIssueService.addHealthIssueUpdate(
+          widget.healthIssue.id!,
+          updateText,
+          updateType: "general_update", // Explicitly general update
         );
-        await widget.healthIssueService.addHealthIssueUpdate(widget.healthIssue.id!, update);
         widget.onUpdateAdded();
       } catch (e) {
         if (mounted) {
@@ -792,7 +784,7 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
         }
       } finally {
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() { _isLoading = false; });
         }
       }
     }
@@ -800,16 +792,19 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SingleChildScrollView(
       child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text("Add New Update", style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16.0),
+            Text(
+              "Add New Update",
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20.0),
             TextFormField(
               controller: _updateTextController,
               decoration: const InputDecoration(
@@ -817,7 +812,7 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
                 hintText: "Enter details about the update...",
                 border: OutlineInputBorder(),
               ),
-              maxLines: 5,
+              maxLines: 4,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return "Please enter update details.";
@@ -827,16 +822,19 @@ class _AddUpdateBottomSheetContentState extends State<_AddUpdateBottomSheetConte
             ),
             const SizedBox(height: 20.0),
             ElevatedButton.icon(
-              icon: const Icon(Icons.save_alt_outlined),
+              icon: const Icon(Icons.save_outlined),
               label: const Text("Save Update"),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
-                textStyle: const TextStyle(fontSize: 16.0),
+                textStyle: Theme.of(context).textTheme.titleMedium,
               ),
-              onPressed: _isLoading || !_isFormValid ? null : _submitUpdate,
+              onPressed: _isLoading ? null : _saveUpdate,
             ),
-            if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
-            const SizedBox(height: 16.0), // Added padding at the bottom
+            if (_isLoading) const Padding(
+                padding: EdgeInsets.only(top: 10.0),
+                child: Center(child: CircularProgressIndicator()),
+            ),
+            const SizedBox(height: 20.0), // Added padding at the bottom
           ],
         ),
       ),
@@ -860,168 +858,176 @@ class _UploadFileBottomSheetContent extends StatefulWidget {
 }
 
 class _UploadFileBottomSheetContentState extends State<_UploadFileBottomSheetContent> {
+  final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   File? _selectedFile;
   String? _selectedFileName;
   bool _isLoading = false;
-  bool _isFileSelected = false;
 
   @override
-  void initState() {
-    super.initState();
-    // No listener needed for _descriptionController as it's optional
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
+    if (result != null) {
       setState(() {
         _selectedFile = File(result.files.single.path!);
         _selectedFileName = result.files.single.name;
-        _isFileSelected = true;
       });
     } else {
-      // User canceled the picker or no path available
-      // setState(() { _isFileSelected = false; }); // Not strictly needed if button relies on _selectedFile != null
+      // User canceled the picker
     }
   }
 
   Future<void> _uploadAndSaveFile() async {
-    if (_selectedFile == null) { // This check is redundant if button is disabled, but good for safety
+    if (_selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select a file first.")),
       );
       return;
     }
-    setState(() => _isLoading = true);
-    try {
-      await widget.healthIssueService.uploadFileWithDescription(
-        _selectedFile!,
-        widget.healthIssue.id!,
-        _descriptionController.text.trim(),
-        _selectedFileName ?? "unknown_file",
-      );
-      widget.onFileUploaded();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error uploading file: ${e.toString()}")),
+    if (_formKey.currentState!.validate()) {
+      setState(() { _isLoading = true; });
+      try {
+        final description = _descriptionController.text.trim();
+        await widget.healthIssueService.uploadFileWithDescription(
+          widget.healthIssue.id!,
+          _selectedFile!,
+          _selectedFileName ?? "unknown_file",
+          description,
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        widget.onFileUploaded();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to upload file: ${e.toString()}")),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() { _isLoading = false; });
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget filePreviewWidget;
-    if (_selectedFile != null) {
-      final isImage = _isImageFileForThumbnail(_selectedFileName);
-      if (isImage) {
-        filePreviewWidget = SizedBox(
-          width: 50.0, // Standardized width
-          height: 50.0, // Standardized height
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8.0),
-            child: Image.file(_selectedFile!, fit: BoxFit.cover), // Ensure image covers the square area
-          ),
-        );
-      } else {
-        filePreviewWidget = SizedBox(
-          width: 50.0, // Standardized width
-          height: 50.0, // Standardized height
-          child: Center(child: Icon(_getIconForFileType(_selectedFileName), size: 30.0)), // Centered icon
-        );
-      }
-    } else {
-      filePreviewWidget = const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text("Upload File", style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16.0),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.attach_file),
-            label: Text(_selectedFileName ?? "Select File"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              textStyle: const TextStyle(fontSize: 16.0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              "Upload File",
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
             ),
-            onPressed: _isLoading ? null : _pickFile,
-          ),
-          const SizedBox(height: 12.0),
-          if (_selectedFile != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Center(child: filePreviewWidget),
+            const SizedBox(height: 20.0),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.attach_file_outlined),
+              label: const Text("Select File"),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                textStyle: Theme.of(context).textTheme.titleMedium,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0), // Rounded corners
+                ),
+              ),
+              onPressed: _isLoading ? null : _pickFile,
             ),
-          TextFormField(
-            controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: "File Description (Optional)",
-              hintText: "Enter a brief description for the file...",
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12.0),
+            if (_selectedFile != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    Icon(_getIconForFileType(_selectedFileName), color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_selectedFileName ?? "No file selected", overflow: TextOverflow.ellipsis)),
+                  ],
+                ),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text("No file selected.", textAlign: TextAlign.center),
+              ),
+            const SizedBox(height: 12.0),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: "File Description (Optional)",
+                hintText: "Enter a brief description for the file...",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
             ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 20.0),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.cloud_upload_outlined),
-            label: const Text("Upload and Save File"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              textStyle: const TextStyle(fontSize: 16.0),
+            const SizedBox(height: 20.0),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.cloud_upload_outlined),
+              label: const Text("Upload and Save File"),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                textStyle: Theme.of(context).textTheme.titleMedium,
+              ),
+              onPressed: (_isLoading || _selectedFile == null) ? null : _uploadAndSaveFile,
             ),
-            onPressed: (_isLoading || _selectedFile == null) ? null : _uploadAndSaveFile,
-          ),
-          if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
-          const SizedBox(height: 16.0),
-        ],
+            if (_isLoading) const Padding(
+                padding: EdgeInsets.only(top: 10.0),
+                child: Center(child: CircularProgressIndicator()),
+            ),
+            const SizedBox(height: 20.0), // Added padding at the bottom
+          ],
+        ),
       ),
     );
   }
 
-  // Helper methods also used in the main screen, duplicated for encapsulation here
-  bool _isImageFileForThumbnail(String? fileName) {
-    if (fileName == null) return false;
-    final extension = p.extension(fileName.toLowerCase());
-    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(extension);
-  }
-
+  // Helper to get icon for file type (can be moved to a utility class)
   IconData _getIconForFileType(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file_outlined;
     final extension = p.extension(fileName.toLowerCase());
     switch (extension) {
-      case '.pdf': return Icons.picture_as_pdf_outlined;
-      case '.doc': case '.docx': return Icons.description_outlined;
-      case '.xls': case '.xlsx': return Icons.table_chart_outlined;
-      case '.ppt': case '.pptx': return Icons.slideshow_outlined;
-      case '.txt': return Icons.article_outlined;
-      case '.zip': case '.rar': return Icons.archive_outlined;
-      case '.mp3': case '.wav': case '.aac': return Icons.audiotrack_outlined;
-      case '.mp4': case '.mov': case '.avi': return Icons.videocam_outlined;
-      default: return Icons.insert_drive_file_outlined;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+      case '.bmp':
+      case '.webp':
+        return Icons.image_outlined;
+      case '.pdf':
+        return Icons.picture_as_pdf_outlined;
+      case '.doc':
+      case '.docx':
+        return Icons.description_outlined;
+      case '.xls':
+      case '.xlsx':
+        return Icons.table_chart_outlined;
+      case '.ppt':
+      case '.pptx':
+        return Icons.slideshow_outlined;
+      default:
+        return Icons.insert_drive_file_outlined;
     }
   }
 }
 
 class _BookFollowUpBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
-  final HealthIssueService healthIssueService;
+  final CalendarEventService calendarEventService;
+  final Uuid uuid;
   final VoidCallback onFollowUpBooked;
 
   const _BookFollowUpBottomSheetContent({
     required this.healthIssue,
-    required this.healthIssueService,
+    required this.calendarEventService,
+    required this.uuid,
     required this.onFollowUpBooked,
   });
 
@@ -1031,98 +1037,104 @@ class _BookFollowUpBottomSheetContent extends StatefulWidget {
 
 class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomSheetContent> {
   final _formKey = GlobalKey<FormState>();
+  final _followUpNotesController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
-  bool _isFormValid = false;
-
-  // Store initial values for edit comparison
-  DateTime? _initialDate;
-  TimeOfDay? _initialTime;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.healthIssue.nextFollowUpDate != null) {
-      _initialDate = widget.healthIssue.nextFollowUpDate!.toDate();
-      _initialTime = TimeOfDay.fromDateTime(_initialDate!);
-      _selectedDate = _initialDate;
-      _selectedTime = _initialTime;
-    }
-    _validateForm(); // Initial validation
-  }
-
-  void _validateForm() {
-    bool isEditing = widget.healthIssue.nextFollowUpDate != null;
-    bool hasChanged = false;
-    if (isEditing) {
-      if (_selectedDate != _initialDate || _selectedTime != _initialTime) {
-        hasChanged = true;
-      }
-    }
-
-    setState(() {
-      if (isEditing) {
-        _isFormValid = hasChanged && _selectedDate != null; // Must have a date and must have changed
-      } else {
-        _isFormValid = _selectedDate != null; // For new, only date is mandatory
-      }
-    });
+  void dispose() {
+    _followUpNotesController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
     );
-    if (pickedDate != null) { // No need to check if pickedDate != _selectedDate here, _validateForm handles it
+    if (picked != null && picked != _selectedDate) {
       setState(() {
-        _selectedDate = pickedDate;
-        _validateForm();
+        _selectedDate = picked;
       });
     }
   }
 
   Future<void> _pickTime(BuildContext context) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    if (pickedTime != null) { // No need to check if pickedTime != _selectedTime here, _validateForm handles it
+    if (picked != null && picked != _selectedTime) {
       setState(() {
-        _selectedTime = pickedTime;
-        _validateForm();
+        _selectedTime = picked;
       });
     }
   }
 
   Future<void> _saveFollowUp() async {
-    if (_formKey.currentState!.validate() && _isFormValid) {
-      // _selectedDate null check is already part of _isFormValid logic
-      setState(() => _isLoading = true);
-      try {
-        DateTime finalDateTime = _selectedDate!;
-        if (_selectedTime != null) {
-          finalDateTime = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day, _selectedTime!.hour, _selectedTime!.minute);
-        }
-        
-        HealthIssue updatedIssue = widget.healthIssue.copyWith(
-          nextFollowUpDate: Timestamp.fromDate(finalDateTime),
-          updatedAt: Timestamp.now(),
+    if (_formKey.currentState!.validate()) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a follow-up date.")),
         );
-        await widget.healthIssueService.updateHealthIssue(updatedIssue);
+        return;
+      }
+
+      setState(() { _isLoading = true; });
+      try {
+        final notes = _followUpNotesController.text.trim();
+        final String eventId = widget.uuid.v4();
+        final User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) {
+          throw Exception("User not logged in.");
+        }
+
+        DateTime finalDateTime = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+          _selectedTime?.hour ?? 0, 
+          _selectedTime?.minute ?? 0,
+        );
+
+        final followUpEvent = CalendarEvent(
+          eventId: eventId,
+          healthIssueId: widget.healthIssue.id!,
+          healthIssueName: widget.healthIssue.issueName,
+          eventTitle: "Follow-up: ${widget.healthIssue.issueName}",
+          eventDescription: notes,
+          eventDate: Timestamp.fromDate(finalDateTime),
+          eventTime: _selectedTime != null ? _selectedTime!.format(context) : null,
+          eventType: "Follow-up", // Specific type
+          createdAt: Timestamp.now(),
+          userId: currentUser.uid,
+        );
+
+        await widget.calendarEventService.addCalendarEvent(followUpEvent);
+        
+        // Also, log this action to the general issue timeline if desired (using HealthIssueService)
+        // This part is optional and depends on whether you want duplicate logging or specific formatting
+        // For now, we assume the CalendarEvent itself is the primary log for this action.
+        // Example: 
+        // await HealthIssueService().addHealthIssueUpdate(
+        //   widget.healthIssue.id!,
+        //   "Follow-up scheduled for ${DateFormat.yMMMd().add_jm().format(finalDateTime)}. Notes: $notes",
+        //   updateType: "follow_up_scheduled", 
+        // );
+
         widget.onFollowUpBooked();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to save follow-up: ${e.toString()}")),
+            SnackBar(content: Text("Failed to book follow-up: ${e.toString()}")),
           );
         }
       } finally {
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() { _isLoading = false; });
         }
       }
     }
@@ -1130,41 +1142,60 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SingleChildScrollView(
       child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text("Book/Update Follow-Up", style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              "Book Follow-Up",
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 20.0),
-            Text("Selected Date: ${_selectedDate == null ? 'Not set' : DateFormat.yMMMd().format(_selectedDate!)}"),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.calendar_month_outlined),
-              label: const Text("Select Date"),
-              onPressed: () => _pickDate(context),
+            TextFormField(
+              controller: _followUpNotesController,
+              decoration: const InputDecoration(
+                labelText: "Follow-Up Notes (Optional)",
+                hintText: "Enter any notes for the follow-up...",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
             ),
-            const SizedBox(height: 12.0),
-            Text("Selected Time: ${_selectedTime == null ? 'Not set (optional)' : _selectedTime!.format(context)}"),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.access_time_outlined),
-              label: const Text("Select Time"),
-              onPressed: () => _pickTime(context),
+            const SizedBox(height: 16.0),
+            ListTile(
+              leading: const Icon(Icons.calendar_today_outlined),
+              title: Text(_selectedDate == null
+                  ? "Select Follow-Up Date*"
+                  : DateFormat.yMMMd().format(_selectedDate!)),
+              trailing: const Icon(Icons.arrow_drop_down),
+              onTap: () => _pickDate(context),
             ),
-            const SizedBox(height: 24.0),
+            ListTile(
+              leading: const Icon(Icons.access_time_outlined),
+              title: Text(_selectedTime == null
+                  ? "Select Follow-Up Time (Optional)"
+                  : _selectedTime!.format(context)),
+              trailing: const Icon(Icons.arrow_drop_down),
+              onTap: () => _pickTime(context),
+            ),
+            const SizedBox(height: 20.0),
             ElevatedButton.icon(
-              icon: const Icon(Icons.save_alt_outlined),
+              icon: const Icon(Icons.check_circle_outline),
               label: const Text("Save Follow-Up"),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
-                textStyle: const TextStyle(fontSize: 16.0),
+                textStyle: Theme.of(context).textTheme.titleMedium,
               ),
-              onPressed: _isLoading || !_isFormValid ? null : _saveFollowUp,
+              onPressed: _isLoading ? null : _saveFollowUp,
             ),
-            if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
-            const SizedBox(height: 16.0),
+            if (_isLoading) const Padding(
+                padding: EdgeInsets.only(top: 10.0),
+                child: Center(child: CircularProgressIndicator()),
+            ),
+            const SizedBox(height: 20.0),
           ],
         ),
       ),
@@ -1174,12 +1205,14 @@ class _BookFollowUpBottomSheetContentState extends State<_BookFollowUpBottomShee
 
 class _AddReminderBottomSheetContent extends StatefulWidget {
   final HealthIssue healthIssue;
-  final HealthIssueService healthIssueService;
+  final CalendarEventService calendarEventService;
+  final Uuid uuid;
   final VoidCallback onReminderAdded;
 
   const _AddReminderBottomSheetContent({
     required this.healthIssue,
-    required this.healthIssueService,
+    required this.calendarEventService,
+    required this.uuid,
     required this.onReminderAdded,
   });
 
@@ -1189,89 +1222,106 @@ class _AddReminderBottomSheetContent extends StatefulWidget {
 
 class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetContent> {
   final _formKey = GlobalKey<FormState>();
-  final _reminderTextController = TextEditingController();
+  final _reminderTitleController = TextEditingController();
+  final _reminderDescriptionController = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  String? _selectedEventType = "Custom"; // Default to Custom
   bool _isLoading = false;
-  bool _isFormValid = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _reminderTextController.addListener(_validateForm);
-  }
+  final List<String> _eventTypes = ["Medication", "Appointment", "Custom", "Follow-up"];
 
   @override
   void dispose() {
-    _reminderTextController.removeListener(_validateForm);
-    _reminderTextController.dispose();
+    _reminderTitleController.dispose();
+    _reminderDescriptionController.dispose();
     super.dispose();
   }
 
-  void _validateForm() {
-    setState(() {
-      _isFormValid = _reminderTextController.text.trim().isNotEmpty;
-    });
-  }
-
   Future<void> _pickDate(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      lastDate: DateTime(2101),
     );
-    if (pickedDate != null && pickedDate != _selectedDate) {
+    if (picked != null && picked != _selectedDate) {
       setState(() {
-        _selectedDate = pickedDate;
-        // No need to call _validateForm() here as date/time are optional for reminder button enablement
+        _selectedDate = picked;
       });
     }
   }
 
   Future<void> _pickTime(BuildContext context) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
+    final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    if (pickedTime != null && pickedTime != _selectedTime) {
+    if (picked != null && picked != _selectedTime) {
       setState(() {
-        _selectedTime = pickedTime;
-        // No need to call _validateForm() here as date/time are optional for reminder button enablement
+        _selectedTime = picked;
       });
     }
   }
 
   Future<void> _saveReminder() async {
-    if (_formKey.currentState!.validate() && _isFormValid) {
-      // _reminderTextController empty check is already part of _isFormValid logic
-      setState(() => _isLoading = true);
-      try {
-        String reminderDetails = _reminderTextController.text.trim();
-        String dateTimeString = "";
-        if (_selectedDate != null) {
-          dateTimeString += DateFormat.yMMMd().format(_selectedDate!);
-          if (_selectedTime != null) {
-            dateTimeString += " at ${_selectedTime!.format(context)}";
-          }
-        }
-        // The actual reminder text for Firestore is now just the controller's text.
-        // The date/time are for user display and potential future notification features, not part of the saved string for logging.
-
-        await widget.healthIssueService.addOrUpdateReminder(
-          widget.healthIssue.id!,
-          _reminderTextController.text.trim(), // Log only the core reminder text
+    if (_formKey.currentState!.validate()) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a reminder date.")),
         );
+        return;
+      }
+      if (_selectedEventType == null) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a reminder type.")),
+        );
+        return;
+      }
+
+      setState(() { _isLoading = true; });
+      try {
+        final title = _reminderTitleController.text.trim();
+        final description = _reminderDescriptionController.text.trim();
+        final String eventId = widget.uuid.v4();
+        final User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) {
+          throw Exception("User not logged in.");
+        }
+
+        DateTime finalDateTime = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+          _selectedTime?.hour ?? 0,
+          _selectedTime?.minute ?? 0,
+        );
+
+        final reminderEvent = CalendarEvent(
+          eventId: eventId,
+          healthIssueId: widget.healthIssue.id!,
+          healthIssueName: widget.healthIssue.issueName,
+          eventTitle: title,
+          eventDescription: description.isNotEmpty ? description : null,
+          eventDate: Timestamp.fromDate(finalDateTime),
+          eventTime: _selectedTime != null ? _selectedTime!.format(context) : null,
+          eventType: _selectedEventType!,
+          createdAt: Timestamp.now(),
+          userId: currentUser.uid,
+        );
+
+        await widget.calendarEventService.addCalendarEvent(reminderEvent);
         widget.onReminderAdded();
+
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to save reminder: ${e.toString()}")),
+            SnackBar(content: Text("Failed to add reminder: ${e.toString()}")),
           );
         }
       } finally {
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() { _isLoading = false; });
         }
       }
     }
@@ -1279,56 +1329,97 @@ class _AddReminderBottomSheetContentState extends State<_AddReminderBottomSheetC
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SingleChildScrollView(
       child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text("Add Reminder", style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16.0),
+            Text(
+              "Add Reminder",
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20.0),
             TextFormField(
-              controller: _reminderTextController,
+              controller: _reminderTitleController,
               decoration: const InputDecoration(
-                labelText: "Reminder Details",
-                hintText: "e.g., Take medication, Doctor's appointment",
+                labelText: "Reminder Title*",
+                hintText: "e.g., Take Vitamin D, Doctor's Appointment",
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return "Please enter reminder details.";
+                  return "Please enter a reminder title.";
                 }
                 return null;
               },
             ),
-            const SizedBox(height: 12.0),
-            Text("Reminder Date: ${_selectedDate == null ? 'Not set (optional)' : DateFormat.yMMMd().format(_selectedDate!)}"),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.calendar_month_outlined),
-              label: const Text("Select Date"),
-              onPressed: () => _pickDate(context),
+            const SizedBox(height: 16.0),
+            TextFormField(
+              controller: _reminderDescriptionController,
+              decoration: const InputDecoration(
+                labelText: "Description (Optional)",
+                hintText: "Additional details for the reminder...",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
             ),
-            const SizedBox(height: 12.0),
-            Text("Reminder Time: ${_selectedTime == null ? 'Not set (optional)' : _selectedTime!.format(context)}"),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.access_time_outlined),
-              label: const Text("Select Time"),
-              onPressed: () => _pickTime(context),
+            const SizedBox(height: 16.0),
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: "Reminder Type*",
+                border: OutlineInputBorder(),
+              ),
+              value: _selectedEventType,
+              items: _eventTypes.map((String type) {
+                return DropdownMenuItem<String>(
+                  value: type,
+                  child: Text(type),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedEventType = newValue;
+                });
+              },
+              validator: (value) => value == null ? 'Please select a type' : null,
             ),
-            const SizedBox(height: 24.0),
+            const SizedBox(height: 16.0),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today_outlined),
+              title: Text(_selectedDate == null
+                  ? "Select Reminder Date*"
+                  : DateFormat.yMMMd().format(_selectedDate!)),
+              trailing: const Icon(Icons.arrow_drop_down),
+              onTap: () => _pickDate(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.access_time_outlined),
+              title: Text(_selectedTime == null
+                  ? "Select Reminder Time (Optional)"
+                  : _selectedTime!.format(context)),
+              trailing: const Icon(Icons.arrow_drop_down),
+              onTap: () => _pickTime(context),
+            ),
+            const SizedBox(height: 20.0),
             ElevatedButton.icon(
-              icon: const Icon(Icons.save_alt_outlined),
+              icon: const Icon(Icons.alarm_add_outlined),
               label: const Text("Save Reminder"),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
-                textStyle: const TextStyle(fontSize: 16.0),
+                textStyle: Theme.of(context).textTheme.titleMedium,
               ),
-              onPressed: _isLoading || !_isFormValid ? null : _saveReminder,
+              onPressed: _isLoading ? null : _saveReminder,
             ),
-            if (_isLoading) const Padding(padding: EdgeInsets.only(top:8.0), child: Center(child: CircularProgressIndicator())),
-            const SizedBox(height: 16.0),
+            if (_isLoading) const Padding(
+                padding: EdgeInsets.only(top: 10.0),
+                child: Center(child: CircularProgressIndicator()),
+            ),
+            const SizedBox(height: 20.0),
           ],
         ),
       ),
