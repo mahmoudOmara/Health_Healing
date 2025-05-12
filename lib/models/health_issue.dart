@@ -33,6 +33,7 @@ class HealthIssue {
     required this.updatedAt,
   });
 
+  // Factory constructor to create a HealthIssue from a DocumentSnapshot
   factory HealthIssue.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return HealthIssue(
@@ -55,6 +56,7 @@ class HealthIssue {
     );
   }
 
+  // Method to convert a HealthIssue instance to a Map for Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'userId': userId,
@@ -68,6 +70,47 @@ class HealthIssue {
       'isRecurring': isRecurring,
       if (nextFollowUpDate != null) 'nextFollowUpDate': nextFollowUpDate,
       if (fileUploads != null) 'fileUploads': fileUploads,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
+
+  // Standard fromMap factory constructor
+  factory HealthIssue.fromMap(Map<String, dynamic> data, String? documentId) {
+    return HealthIssue(
+      id: documentId,
+      userId: data['userId'] ?? '',
+      issueName: data['issueName'] ?? '',
+      startDate: data['startDate'] is Timestamp ? data['startDate'] : Timestamp.now(),
+      severityLevel: data['severityLevel'] ?? '',
+      status: data['status'] ?? 'Active',
+      symptoms: data['symptoms'] as String?,
+      medications: data['medications'] as String?,
+      doctorClinic: data['doctorClinic'] as String?,
+      isRecurring: data['isRecurring'] as bool? ?? false,
+      nextFollowUpDate: data['nextFollowUpDate'] is Timestamp ? data['nextFollowUpDate'] : null,
+      fileUploads: (data['fileUploads'] as List<dynamic>?)
+          ?.map((file) => Map<String, String>.from(file as Map))
+          .toList(),
+      createdAt: data['createdAt'] is Timestamp ? data['createdAt'] : Timestamp.now(),
+      updatedAt: data['updatedAt'] is Timestamp ? data['updatedAt'] : Timestamp.now(),
+    );
+  }
+
+  // Standard toMap method
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'issueName': issueName,
+      'startDate': startDate,
+      'severityLevel': severityLevel,
+      'status': status,
+      'symptoms': symptoms,
+      'medications': medications,
+      'doctorClinic': doctorClinic,
+      'isRecurring': isRecurring,
+      'nextFollowUpDate': nextFollowUpDate,
+      'fileUploads': fileUploads,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
