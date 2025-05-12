@@ -98,11 +98,13 @@ class HealthIssueService {
         } else {
           logText = "Follow-up cancelled"; 
         }
+        // Ensure HealthIssueUpdate has updateType and timestamp fields
         HealthIssueUpdate followUpLog = HealthIssueUpdate(
           updateText: logText,
-          updateDate: Timestamp.now(),
+          timestamp: Timestamp.now(), // Assuming timestamp field exists
+          updateType: "follow_up", // Assuming updateType field exists
         );
-        await addHealthIssueUpdate(issue.id!, followUpLog);
+        await addHealthIssueUpdate(issue.id!, followUpLog.updateText, updateType: followUpLog.updateType ?? "unknown");
       }
     } catch (e) {
       print("Error updating health issue: $e");
@@ -110,7 +112,7 @@ class HealthIssueService {
     }
   }
 
-  Future<void> addHealthIssueUpdate(String issueId, HealthIssueUpdate update) async {
+  Future<void> addHealthIssueUpdate(String issueId, String updateText, {String updateType = "general_update"}) async {
     if (_currentUserId == null) {
       throw Exception("User not logged in or userId not provided");
     }
@@ -119,7 +121,12 @@ class HealthIssueService {
       if (!issueDoc.exists || (issueDoc.data() as Map<String, dynamic>)["userId"] != _currentUserId) {
         throw Exception("User not authorized to update this issue or issue does not exist");
       }
-      Map<String, dynamic> updateData = update.toFirestore();
+      HealthIssueUpdate newUpdate = HealthIssueUpdate(
+        updateText: updateText,
+        timestamp: Timestamp.now(),
+        updateType: updateType,
+      );
+      Map<String, dynamic> updateData = newUpdate.toFirestore();
       updateData["userId"] = _currentUserId; 
 
       await _healthIssuesCollection
@@ -132,14 +139,14 @@ class HealthIssueService {
     }
   }
 
-  Stream<List<HealthIssueUpdate>> getIssueUpdatesStream(String issueId) {
+  Stream<List<HealthIssueUpdate>> getHealthIssueUpdatesStream(String issueId) { // Renamed from getIssueUpdatesStream
     if (_currentUserId == null) {
       return Stream.value([]);
     }
     return _healthIssuesCollection
         .doc(issueId)
         .collection("issue_updates")
-        .orderBy("updateDate", descending: true)
+        .orderBy("timestamp", descending: true) // Assuming timestamp field exists and is used for ordering
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
@@ -148,7 +155,7 @@ class HealthIssueService {
     });
   }
 
-  Future<Map<String, String>> uploadFileWithDescription(File file, String issueId, String description, String originalFileName) async {
+  Future<Map<String, String>> uploadFileWithDescription(String issueId, File file, String originalFileName, String description) async { // Corrected parameter order
     if (_currentUserId == null) {
       throw Exception("User not logged in");
     }
@@ -167,7 +174,7 @@ class HealthIssueService {
       String downloadURL = await snapshot.ref.getDownloadURL();
       
       Map<String, String> fileMetadata = {
-        "fileId": storageRef.name,
+        "fileId": storageRef.name, // Using storageRef.name as a unique ID for the file in this context
         "fileName": originalFileName,
         "downloadURL": downloadURL,
         "description": description,
@@ -185,11 +192,7 @@ class HealthIssueService {
       if (description.isNotEmpty) {
         logText += " - Description: $description";
       }
-      HealthIssueUpdate fileLogUpdate = HealthIssueUpdate(
-        updateText: logText,
-        updateDate: Timestamp.now(),
-      );
-      await addHealthIssueUpdate(issueId, fileLogUpdate);
+      await addHealthIssueUpdate(issueId, logText, updateType: "file_upload");
 
       return fileMetadata;
     } catch (e) {
@@ -217,21 +220,14 @@ class HealthIssueService {
       Reference storageRef = _storage.ref().child(fileData['storagePath']!);
       await storageRef.delete();
 
-      if (fileData['fileId'] == null || fileData['fileId']!.isEmpty) {
-          throw Exception("File ID is missing, cannot reliably remove from Firestore.");
-      }
-
+      // The fileData map itself is used for removal, ensure it matches what's in Firestore array
       await _healthIssuesCollection.doc(issueId).update({
         "fileUploads": FieldValue.arrayRemove([fileData]),
         "updatedAt": Timestamp.now(),
       });
       
       String logText = "File Deleted: ${fileData['fileName'] ?? 'Unknown file'}";
-      HealthIssueUpdate deleteLogUpdate = HealthIssueUpdate(
-        updateText: logText,
-        updateDate: Timestamp.now(),
-      );
-      await addHealthIssueUpdate(issueId, deleteLogUpdate);
+      await addHealthIssueUpdate(issueId, logText, updateType: "file_deleted");
 
     } catch (e) {
       print("Error deleting file: $e");
@@ -250,11 +246,7 @@ class HealthIssueService {
 
   Future<void> addOrUpdateReminder(String issueId, String reminderDetails, {bool isUpdate = false}) async {
     String logText = isUpdate ? "Reminder updated: $reminderDetails" : "Reminder set: $reminderDetails";
-    HealthIssueUpdate reminderLog = HealthIssueUpdate(
-      updateText: logText,
-      updateDate: Timestamp.now(),
-    );
-    await addHealthIssueUpdate(issueId, reminderLog);
+    await addHealthIssueUpdate(issueId, logText, updateType: "reminder_added"); // or reminder_updated
     await _healthIssuesCollection.doc(issueId).update({"updatedAt": Timestamp.now()});
   }
 

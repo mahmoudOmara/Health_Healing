@@ -3,13 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class HealthIssueUpdate {
   final String? id;
   final String updateText;
-  final Timestamp updateDate;
+  final Timestamp timestamp; // Changed from updateDate to timestamp
+  final String? updateType; // Added updateType
   final List<Map<String, String>>? files; // { "fileName": "...", "downloadURL": "..." }
 
   HealthIssueUpdate({
     this.id,
     required this.updateText,
-    required this.updateDate,
+    required this.timestamp, // Changed from updateDate
+    this.updateType, // Added
     this.files,
   });
 
@@ -18,7 +20,8 @@ class HealthIssueUpdate {
     return HealthIssueUpdate(
       id: doc.id,
       updateText: data['updateText'] ?? '',
-      updateDate: data['updateDate'] ?? Timestamp.now(),
+      timestamp: data['timestamp'] ?? Timestamp.now(), // Changed from updateDate
+      updateType: data['updateType'] as String?,
       files: (data['files'] as List<dynamic>?)
           ?.map((file) => Map<String, String>.from(file as Map))
           .toList(),
@@ -28,7 +31,8 @@ class HealthIssueUpdate {
   Map<String, dynamic> toFirestore() {
     return {
       'updateText': updateText,
-      'updateDate': updateDate,
+      'timestamp': timestamp, // Changed from updateDate
+      if (updateType != null) 'updateType': updateType, // Added
       if (files != null) 'files': files,
     };
   }
