@@ -1,11 +1,11 @@
-import 'dart:io'; // Added for File type
-import 'package:file_picker/file_picker.dart'; // Added for file picking
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:health_healing/models/health_issue.dart';
-import 'package:health_healing/services/health_issue_service.dart';
-import 'package:intl/intl.dart'; // For date formatting
-import 'package:path/path.dart' as p; // For file extension in icons
+import \'dart:io\'; // Added for File type
+import \'package:file_picker/file_picker.dart\'; // Added for file picking
+import \'package:flutter/material.dart\';
+import \'package:cloud_firestore/cloud_firestore.dart\';
+import \'package:health_healing/models/health_issue.dart\';
+import \'package:health_healing/services/health_issue_service.dart\';
+import \'package:intl/intl.dart\'; // For date formatting
+import \'package:path/path.dart\' as p; // For file extension in icons
 
 class AddEditHealthIssueScreen extends StatefulWidget {
   final HealthIssue? healthIssue; // Nullable for adding new, non-null for editing
@@ -32,7 +32,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   bool _isRecurring = false;
   DateTime? _nextFollowUpDate;
 
-  final List<String> _severityOptions = ['Mild', 'Moderate', 'Severe'];
+  final List<String> _severityOptions = [\'Mild\', \'Moderate\', \'Severe\'];
   bool _isLoading = false;
 
   // State for file uploads
@@ -112,11 +112,11 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   Future<void> _saveForm() async {
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a Start Date.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(\'Please select a Start Date.\')));
       return;
     }
     if (_severityLevel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a Severity Level.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(\'Please select a Severity Level.\')));
       return;
     }
 
@@ -127,7 +127,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
 
     HealthIssue issueToSave = HealthIssue(
       id: issueId,
-      userId: '', // Will be set by service
+      userId: \'\', // Will be set by service
       issueName: _issueNameController.text,
       startDate: Timestamp.fromDate(_startDate!),
       severityLevel: _severityLevel!,
@@ -136,7 +136,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
       doctorClinic: _doctorClinicController.text.isNotEmpty ? _doctorClinicController.text : null,
       isRecurring: _isRecurring,
       nextFollowUpDate: _nextFollowUpDate != null ? Timestamp.fromDate(_nextFollowUpDate!) : null,
-      status: widget.healthIssue?.status ?? 'Active',
+      status: widget.healthIssue?.status ?? \'Active\',
       createdAt: widget.healthIssue?.createdAt ?? now,
       updatedAt: now,
       fileUploads: isNewIssue ? [] : widget.healthIssue?.fileUploads ?? [], // Start with empty/existing
@@ -147,7 +147,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
       if (isNewIssue) {
         issueId = await _healthIssueService.addHealthIssue(issueToSave);
         if (issueId == null) {
-          operationError = 'Failed to add health issue. Please try again.';
+          operationError = \'Failed to add health issue. Please try again.\';
         }
       } else {
         await _healthIssueService.updateHealthIssue(issueToSave);
@@ -161,7 +161,8 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
           String description = _fileDescriptionControllers[i].text.trim();
           String originalFileName = platformFile.name;
           try {
-            await _healthIssueService.uploadFileWithDescription(file, issueId, description, originalFileName);
+            // Corrected parameter order for uploadFileWithDescription
+            await _healthIssueService.uploadFileWithDescription(issueId, file, originalFileName, description);
           } catch (e) {
             print("Error uploading file ${originalFileName}: $e");
             operationError = (operationError ?? "") + " Error uploading ${originalFileName}.";
@@ -171,13 +172,13 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
 
       if (operationError == null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Health issue ${isNewIssue ? 'added' : 'updated'} successfully!')),
+          SnackBar(content: Text(\'Health issue ${isNewIssue ? \'added\' : \'updated\'} successfully!\'))
         );
         Navigator.of(context).pop(true); 
       }
     } catch (e) {
       print("SaveForm Error: $e");
-      operationError = (operationError ?? "") + ' Failed to save health issue: ${e.toString()}';
+      operationError = (operationError ?? "") + \' Failed to save health issue: ${e.toString()}\';
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -191,28 +192,28 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   bool _isImagePlatformFile(PlatformFile file) {
     final extension = file.extension?.toLowerCase();
     if (extension == null) return false;
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(extension);
+    return [\'jpg\', \'jpeg\', \'png\', \'gif\', \'webp\', \'bmp\'].contains(extension);
   }
 
   bool _isImageFileName(String? fileName) {
     if (fileName == null) return false;
     final extension = p.extension(fileName.toLowerCase());
-    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(extension);
+    return [\'.jpg\', \'.jpeg\', \'.png\', \'.gif\', \'.webp\', \'.bmp\'].contains(extension);
   }
 
   IconData _getIconForFileType(String? fileName) {
     if (fileName == null) return Icons.insert_drive_file_outlined;
     final extension = p.extension(fileName.toLowerCase());
     switch (extension) {
-      case '.pdf': return Icons.picture_as_pdf_outlined;
-      case '.doc': case '.docx': return Icons.description_outlined;
-      case '.xls': case '.xlsx': return Icons.table_chart_outlined;
-      case '.ppt': case '.pptx': return Icons.slideshow_outlined;
-      case '.txt': return Icons.article_outlined;
-      case '.zip': case '.rar': return Icons.archive_outlined;
-      case '.jpg': case '.jpeg': case '.png': case '.gif': case '.webp': case '.bmp': return Icons.image_outlined;
-      case '.mp3': case '.wav': case '.aac': return Icons.audiotrack_outlined;
-      case '.mp4': case '.mov': case '.avi': return Icons.videocam_outlined;
+      case \'.pdf\': return Icons.picture_as_pdf_outlined;
+      case \'.doc\': case \'.docx\': return Icons.description_outlined;
+      case \'.xls\': case \'.xlsx\': return Icons.table_chart_outlined;
+      case \'.ppt\': case \'.pptx\': return Icons.slideshow_outlined;
+      case \'.txt\': return Icons.article_outlined;
+      case \'.zip\': case \'.rar\': return Icons.archive_outlined;
+      case \'.jpg\': case \'.jpeg\': case \'.png\': case \'.gif\': case \'.webp\': case \'.bmp\': return Icons.image_outlined;
+      case \'.mp3\': case \'.wav\': case \'.aac\': return Icons.audiotrack_outlined;
+      case \'.mp4\': case \'.mov\': case \'.avi\': return Icons.videocam_outlined;
       default: return Icons.insert_drive_file_outlined;
     }
   }
@@ -221,7 +222,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.healthIssue == null ? 'Add New Health Issue' : 'Edit Health Issue'),
+        title: Text(widget.healthIssue == null ? \'Add New Health Issue\' : \'Edit Health Issue\'),
         actions: [
           if (_isLoading)
             const Padding(
@@ -232,7 +233,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
             IconButton(
               icon: const Icon(Icons.save),
               onPressed: _saveForm,
-              tooltip: 'Save Issue',
+              tooltip: \'Save Issue\',
             ),
         ],
       ),
@@ -244,62 +245,62 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
             children: <Widget>[
               TextFormField(
                 controller: _issueNameController,
-                decoration: const InputDecoration(labelText: 'Issue Name *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: \'Issue Name *\', border: OutlineInputBorder()),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Please enter the issue name';
+                  if (value == null || value.isEmpty) return \'Please enter the issue name\';
                   return null;
                 },
               ),
               const SizedBox(height: 16.0),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Start Date: ${_startDate != null ? DateFormat.yMd().format(_startDate!) : 'Not set'} *'),
+                title: Text(\'Start Date: ${_startDate != null ? DateFormat.yMd().format(_startDate!) : \'Not set\'} *\'),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () => _pickDate(context, isStartDate: true),
               ),
               const SizedBox(height: 16.0),
               DropdownButtonFormField<String>(
                 value: _severityLevel,
-                decoration: const InputDecoration(labelText: 'Severity Level *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: \'Severity Level *\', border: OutlineInputBorder()),
                 items: _severityOptions.map((String value) {
                   return DropdownMenuItem<String>(value: value, child: Text(value));
                 }).toList(),
                 onChanged: (newValue) => setState(() => _severityLevel = newValue),
-                validator: (value) => value == null ? 'Please select a severity level' : null,
+                validator: (value) => value == null ? \'Please select a severity level\' : null,
               ),
               const SizedBox(height: 16.0),
               TextFormField(
                 controller: _symptomsController,
-                decoration: const InputDecoration(labelText: 'Symptoms', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: \'Symptoms\', border: OutlineInputBorder()),
                 maxLines: 3,
               ),
               const SizedBox(height: 16.0),
               TextFormField(
                 controller: _medicationsController,
-                decoration: const InputDecoration(labelText: 'Medications', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: \'Medications\', border: OutlineInputBorder()),
                 maxLines: 2,
               ),
               const SizedBox(height: 16.0),
               TextFormField(
                 controller: _doctorClinicController,
-                decoration: const InputDecoration(labelText: 'Doctor/Clinic', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: \'Doctor/Clinic\', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 16.0),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Recurring Issue'),
+                title: const Text(\'Recurring Issue\'),
                 value: _isRecurring,
                 onChanged: (bool value) => setState(() => _isRecurring = value),
               ),
               const SizedBox(height: 16.0),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Next Follow-Up Reminder: ${_nextFollowUpDate != null ? DateFormat.yMd().format(_nextFollowUpDate!) : 'Not set'}'),
+                title: Text(\'Next Follow-Up Reminder: ${_nextFollowUpDate != null ? DateFormat.yMd().format(_nextFollowUpDate!) : \'Not set\'}\'),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () => _pickDate(context, isStartDate: false),
               ),
               const SizedBox(height: 20),
-              Text('Attachments', style: Theme.of(context).textTheme.titleMedium),
+              Text(\'Attachments\', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               if (_existingFiles.isNotEmpty)
                 Column(
@@ -312,9 +313,9 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                       itemCount: _existingFiles.length,
                       itemBuilder: (context, index) {
                         final fileData = _existingFiles[index];
-                        final String? fileName = fileData['fileName'];
-                        final String? downloadURL = fileData['downloadURL'];
-                        final String? description = fileData['description'];
+                        final String? fileName = fileData[\'fileName\'];
+                        final String? downloadURL = fileData[\'downloadURL\'];
+                        final String? description = fileData[\'description\'];
                         final bool isImage = _isImageFileName(fileName) && downloadURL != null;
 
                         Widget previewWidget;
@@ -432,7 +433,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
                                 TextFormField(
                                   controller: _fileDescriptionControllers[index],
                                   decoration: const InputDecoration(
-                                    labelText: 'File Description (Optional)',
+                                    labelText: \'File Description (Optional)\',
                                     border: OutlineInputBorder(),
                                     isDense: true,
                                   ),
@@ -450,7 +451,7 @@ class _AddEditHealthIssueScreenState extends State<AddEditHealthIssueScreen> {
               ElevatedButton.icon(
                 onPressed: _pickFiles,
                 icon: const Icon(Icons.attach_file),
-                label: const Text('Add File(s)'),
+                label: const Text(\'Add File(s)\'),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 36)),
               ),
               const SizedBox(height: 30.0),
