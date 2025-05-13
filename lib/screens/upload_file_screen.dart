@@ -1,9 +1,9 @@
-import \'dart:io\';
-import \'package:flutter/material.dart\';
-import \'package:file_picker/file_picker.dart\';
-import \'package:health_healing/models/health_issue.dart\';
-import \'package:health_healing/services/health_issue_service.dart\';
-import \'package:firebase_auth/firebase_auth.dart\';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:health_healing/models/health_issue.dart';
+import 'package:health_healing/services/health_issue_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class UploadFileScreen extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -39,14 +39,14 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(\'No file selected.\')),
+            const SnackBar(content: Text('No file selected.')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(\'Error picking file: ${e.toString()}\')),
+          SnackBar(content: Text('Error picking file: ${e.toString()}')),
         );
       }
     }
@@ -56,7 +56,7 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
     if (_selectedFile == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(\'Please select a file to upload.\')),
+          const SnackBar(content: Text('Please select a file to upload.')),
         );
       }
       return;
@@ -70,7 +70,7 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
       if (user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(\'Error: You must be logged in.\')),
+            const SnackBar(content: Text('Error: You must be logged in.')),
           );
           setState(() {
             _isLoading = false;
@@ -80,10 +80,8 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
       }
 
       try {
-        // String filePath = \'health_issues/${widget.healthIssue.id}/uploads\'; // This path is constructed within the service
-        String originalFileName = _fileName ?? _selectedFile!.path.split(\'/\').last;
+        String originalFileName = _fileName ?? _selectedFile!.path.split('/').last;
 
-        // Corrected parameter order: issueId, file, originalFileName, description
         Map<String, String>? uploadResult = await _healthIssueService.uploadFileWithDescription(
             widget.healthIssue.id!, 
             _selectedFile!, 
@@ -94,32 +92,31 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
         if (uploadResult == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text(\'File upload failed: Service did not return upload details.\')),
+              const SnackBar(content: Text('File upload failed: Service did not return upload details.')),
             );
           }
         } else if (mounted) {
-          if (uploadResult.containsKey(\'fileName\') && uploadResult.containsKey(\'downloadURL\')) {
+          if (uploadResult.containsKey('fileName') && uploadResult.containsKey('downloadURL')) {
             List<Map<String, String>> updatedFileUploads = List.from(widget.healthIssue.fileUploads ?? []);
-            // The uploadResult itself is the fileMetadata map to be added
             updatedFileUploads.add(uploadResult);
 
             HealthIssue issueToUpdate = widget.healthIssue.copyWith(fileUploads: updatedFileUploads);
             await _healthIssueService.updateHealthIssue(issueToUpdate);
 
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text(\'File uploaded successfully!\')),
+              const SnackBar(content: Text('File uploaded successfully!')),
             );
             Navigator.pop(context, true);
           } else {
              ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text(\'File upload failed: Result missing required keys.\')),
+              const SnackBar(content: Text('File upload failed: Result missing required keys.')),
             );
           }
         } 
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(\'Failed to upload file: ${e.toString()}\')),
+            SnackBar(content: Text('Failed to upload file: ${e.toString()}')),
           );
         }
       } finally {
@@ -136,7 +133,7 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(\'Upload File for ${widget.healthIssue.issueName}\')),
+        title: Text('Upload File for ${widget.healthIssue.issueName}'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -147,20 +144,20 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
             children: <Widget>[
               ElevatedButton.icon(
                 icon: const Icon(Icons.attach_file),
-                label: const Text(\'Pick File\'),
+                label: const Text('Pick File'),
                 onPressed: _pickFile,
               ),
               if (_selectedFile != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12.0),
-                  child: Text(\'Selected: ${_fileName ?? _selectedFile!.path.split(\'/\').last}\', textAlign: TextAlign.center),
+                  child: Text('Selected: ${_fileName ?? _selectedFile!.path.split('/').last}', textAlign: TextAlign.center),
                 ),
               const SizedBox(height: 16.0),
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: \'File Description (Optional)\',
-                  hintText: \'Enter a brief description for the file...\',
+                  labelText: 'File Description (Optional)',
+                  hintText: 'Enter a brief description for the file...',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -170,7 +167,7 @@ class _UploadFileScreenState extends State<UploadFileScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton.icon(
                       icon: const Icon(Icons.cloud_upload),
-                      label: const Text(\'Upload and Save File\'),
+                      label: const Text('Upload and Save File'),
                       onPressed: _submitUpload,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12.0),
