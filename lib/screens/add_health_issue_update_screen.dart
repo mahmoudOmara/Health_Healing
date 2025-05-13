@@ -1,10 +1,10 @@
-import \'package:flutter/material.dart\';
-import \'package:health_healing/models/health_issue.dart\';
-import \'package:health_healing/services/health_issue_service.dart\';
+import 'package:flutter/material.dart';
+import 'package:health_healing/models/health_issue.dart';
+import 'package:health_healing/services/health_issue_service.dart';
 // HealthIssueUpdate model is no longer directly instantiated here with all its fields
-// import \'package:health_healing/models/health_issue_update.dart\'; 
-import \'package:cloud_firestore/cloud_firestore.dart\'; // Retained for Timestamp, though service handles it now
-import \'package:firebase_auth/firebase_auth.dart\';
+// import 'package:health_healing/models/health_issue_update.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart'; // Retained for Timestamp, though service handles it now
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddHealthIssueUpdateScreen extends StatefulWidget {
   final HealthIssue healthIssue;
@@ -37,7 +37,7 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
       if (user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(\'Error: You must be logged in to add an update.\')),
+            const SnackBar(content: Text('Error: You must be logged in to add an update.')),
           );
           setState(() {
             _isLoading = false;
@@ -59,14 +59,14 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
 
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text(\'Update added successfully!\')),
+              const SnackBar(content: Text('Update added successfully!')),
             );
             Navigator.pop(context, true); // Return true to indicate success
         }
       } catch (e) {
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(\'Failed to add update: ${e.toString()}\')),
+              SnackBar(content: Text('Failed to add update: ${e.toString()}')),
             );
         }
       } finally {
@@ -83,7 +83,7 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(\'Add Update\'),
+        title: const Text('Add Update'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -93,21 +93,21 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Text(
-                \'Add an update for: ${widget.healthIssue.issueName}\',
+                'Add an update for: ${widget.healthIssue.issueName}',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _updateTextController,
                 decoration: const InputDecoration(
-                  labelText: \'Update Details\',
-                  hintText: \'Enter your update, notes, or observations...\',
+                  labelText: 'Update Details',
+                  hintText: 'Enter your update, notes, or observations...',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 5,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return \'Please enter some details for the update.\';
+                    return 'Please enter some details for the update.';
                   }
                   return null;
                 },
@@ -120,7 +120,7 @@ class _AddHealthIssueUpdateScreenState extends State<AddHealthIssueUpdateScreen>
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16.0)
                       ),
-                      child: const Text(\'Save Update\'),
+                      child: const Text('Save Update'),
                     ),
             ],
           ),
